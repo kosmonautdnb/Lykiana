@@ -281,7 +281,7 @@ bool LandscapeCollision::collideLine(const double x0, const double z0, const dou
   double xd = x1 - x0;
   double zd = z1 - z0;
   const double d = sqrt(xd*xd + zd*zd);
-  if (fabs(d) < 0.00001) {if (hit) {if (xh != NULL) *xh = x0; if (zh != NULL) *zh = z0; } return hit; }
+  if (fabs(d) < 0.00001) {if (hit) {if (xh != NULL) *xh = x0; if (zh != NULL) *zh = z0; normal(x0,z0,xn,zn);} return hit; }
   xd /= d; zd /= d;
   double xp = x0;
   double zp = z0;

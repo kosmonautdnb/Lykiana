@@ -99,11 +99,13 @@ static unsigned int getGLTFNode(const String &name, const GLTFA_File *a) {
 * This function loads a gltf from a *.glb file to be used as a game character.
 *
 * @param name The file name of the *.glb to load.
+* @param objectId The objectId for the gltfs later identification.
 * @example GLTFA_File *gltf = loadGLTF_Character("girl1.glb");
 */
-class GLTFA_File *loadGLTF_Character(const char *name) {
+class GLTFA_File *loadGLTF_Character(const char *name, unsigned int objectId) {
   GLTFA_File *r = new GLTFA_File();
   r->textureCallback = animeCharacterTexture;
+  r->gltfId = objectId;
   r->load(name, 0.5); // texture scale
   return r;
 }
@@ -124,12 +126,14 @@ void animateGLTF_Character(class GLTFA_File *gltf, double frame) {
 *
 * @param gltf the gltf file which should be rendered.
 * @example renderGLTF_Character(gltf);
-*/
+P*/
 void renderGLTF_Character(class GLTFA_File *gltf) {
   unsigned int boneId = 0;
-  if (gltf->gltfName.endsWith("vd_grl1d.glb")) {
+  switch(gltf->gltfId) {
+  case GLTF_OBJECTID_MAINCHARACTER_NORMAL: {
     const static unsigned int _boneId = getGLTFNode("J_BIP_C_SPINE",gltf);
     boneId = _boneId;
+  } break;
   }
   const Vector center = gltf->getMatrix(boneId,0).getColumn(3);
 

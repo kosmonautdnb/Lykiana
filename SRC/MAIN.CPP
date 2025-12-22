@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <math.h>
-#include <i86.h>
 #include "GL.H"
 #include "ARRAY.HPP"
 #include "VECTOR.HPP"
@@ -17,6 +16,12 @@
 #include "TERRAIN/T_EDIT.HPP"
 #include "OBJECTS/O_GLTF.HPP"
 #include "OBJECTS/O_WAVOBJ.HPP"
+#ifdef __WATCOMC__
+#include <i86.h>
+#endif // __WATCOMC__
+#ifdef __DJGPP__
+#include <dos.h>
+#endif // __DJGPP__
 
 #ifndef PI
 #define PI 3.14159265358979323846
@@ -100,7 +105,7 @@ void paintPortal() {
   const float yp[4] = {1,1,-1,-1};
   srand(0);
   for (int j = 0; j < 100; j++) {
-    const double phase = (const)(rand() & 255) / 255.0;
+    const double phase = (double)(rand() & 255) / 255.0;
     const double pos = fmod(s*0.5+phase,1.0);
     double xa = (double)((rand() & 511)-256)/256.0;
     double ya = (double)((rand() & 511)-256)/256.0;
@@ -264,7 +269,8 @@ Vector tryWalk(const Vector &start, const Vector &end) {
 void drawLandscapeText(double xp, double zp, const char *text) {
   double yp = scape->getHeight(xp,zp) + 1;
   glColor4f(1,0,0,1);
-  blitFlower(&Vector(xp,yp,zp),1);
+  Vector v = Vector(xp,yp,zp);
+  blitFlower(&v,1);
   glDisable(GL_TEXTURE_2D);
   glBegin(GL_LINES);
   glColor4f(1,1,1,1);
@@ -314,15 +320,20 @@ int main(int argc, const char **argv) {
   glFastTexturing = FASTTEXTURING;
 
   class GLTFA_File *girl;
-  girl = loadGLTF_Character("c:/meshes/vd_grl1d.glb");
+  girl = loadGLTF_Character("c:/meshes/vd_grl1d.glb",GLTF_OBJECTID_MAINCHARACTER_NORMAL);
 
   glWatcomPrecisionTimer(GL_TRUE);
 #ifdef LOGFPS
   glVesa(320,200,32);
 #else
+
+#ifdef __WATCOMC__
   //glVGA();
-  //glVesa(320,200,32);
+  glVesa(320,200,32);
+#else
   glVesa(640,480,16);
+#endif
+
 #endif
   //glVesa(640,480,32);
   glRefresh();
@@ -1110,7 +1121,8 @@ int main(int argc, const char **argv) {
         float k = e->v2 / 255.f;
         k += seconds;
         k *= PI * 2.f * 0.5f;
-        blitGrassBlade(gr2, GRASSW*2*(e->v2/255.f*0.75f+0.125f), GRASSH, &Vector(e->x,e->y,e->z), (e->v1/255.f*0.7+0.3)*0.05, (0x000402*(e->v0))|0xff000000,e->v2/255.f,k);
+        Vector v = Vector(e->x,e->y,e->z);
+        blitGrassBlade(gr2, GRASSW*2*(e->v2/255.f*0.75f+0.125f), GRASSH, &v, (e->v1/255.f*0.7+0.3)*0.05, (0x000402*(e->v0))|0xff000000,e->v2/255.f,k);
       } break;
       case LANDSCAPE_TYPE_FLOWER: {
         if (e->v0 == 0) glColor4f(1,1,1,1);
@@ -1122,11 +1134,13 @@ int main(int argc, const char **argv) {
         k *= PI * 2.f * 0.5f;
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D,flTex);
-        blitFlower(&Vector(e->x+cos(k)*0.05,e->y+sin(k)*0.05,e->z+sin(k*1.5)*0.05),(e->v2/255.f*0.5+0.125)*2);
+        Vector v = Vector(e->x+cos(k)*0.05,e->y+sin(k)*0.05,e->z+sin(k*1.5)*0.05);
+        blitFlower(&v,(e->v2/255.f*0.5+0.125)*2);
       } break;
       case LANDSCAPE_TYPE_TREE: {
         const float treeScale = 0.1*1.5*(5.0/5.0);
-        blitSpriteObjectSprite_(&tree[0], &Vector(e->x,e->y,e->z), (e->v1/255.f*0.4+0.6)*0.5*4*(1+(e->v2 & 1)*0.25)*treeScale*(e->v2/128*4.0+1), (0x010101*(e->v0/2+128))|0xff000000);
+        Vector v = Vector(e->x,e->y,e->z);
+        blitSpriteObjectSprite_(&tree[0], &v, (e->v1/255.f*0.4+0.6)*0.5*4*(1+(e->v2 & 1)*0.25)*treeScale*(e->v2/128*4.0+1), (0x010101*(e->v0/2+128))|0xff000000);
       } break;
       case LANDSCAPE_TYPE_OBJECT: {
         Vector zwo = mv_ * Vector(e->x,e->y,e->z);
@@ -1250,7 +1264,8 @@ int main(int argc, const char **argv) {
   
       glBindTexture(GL_TEXTURE_2D,sunTex);
       glDisable(GL_FOG);
-      blitSun(&Vector(250+cameraPos.x,150+cameraPos.y,250+cameraPos.z));
+      Vector v = Vector(250+cameraPos.x,150+cameraPos.y,250+cameraPos.z);
+      blitSun(&v);
     }
     double timeHimmelEnd = glSeconds();
 

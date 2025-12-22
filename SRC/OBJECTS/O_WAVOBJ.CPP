@@ -112,7 +112,7 @@ static void preprocessMesh(WAVOBJ_Mesh *m) {
 * @example unsigned int texHandle = SMPL_loadTexture("bitmap.png","map_Kd");
 */
 static unsigned int SMPL_loadTexture(const String &fileName, const String &type) {
-  uint32_t texture = 0;
+  unsigned int texture = 0;
   if (type != "map_Kd") return texture;
   RGBAImage image = RGBAImage::fromFile(fileName.c_str());
   glGenTextures(1, &texture);
@@ -136,7 +136,7 @@ static unsigned int SMPL_loadTexture(const String &fileName, const String &type)
 * @example unsigned int texHandle = SMPL_loadTexture3("bitmap.png","map_Kd");
 */
 static unsigned int SMPL_loadTexture3(const String &fileName, const String &type) {
-  uint32_t texture = 0;
+  unsigned int texture = 0;
   if (type != "map_Kd") return texture;
   RGBAImage image = RGBAImage::fromFile(fileName.c_str());
   double scale = 8;
@@ -162,7 +162,7 @@ static unsigned int SMPL_loadTexture3(const String &fileName, const String &type
 * @example unsigned int texHandle = SMPL_loadTexture2("bitmap.png","map_Kd");
 */
 unsigned int SMPL_loadTexture2(const String &fileName, const String &type) {
-  uint32_t texture = 0;
+  unsigned int texture = 0;
   if (type != "map_Kd") return texture;
   RGBAImage image = RGBAImage::fromFile(fileName.c_str());
   for (int i = 0; i < image.width*image.height; i++) {

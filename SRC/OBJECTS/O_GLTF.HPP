@@ -24,18 +24,23 @@
 #ifndef __O_GLTF_HPP__
 #define __O_GLTF_HPP__
 
+typedef enum {
+  GLTF_OBJECTID_MAINCHARACTER_NORMAL = 0,
+} GLTFObjectID;
+
 /**
 * This function loads a gltf from a *.glb file to be used as a game character.
 *
 * @param name The file name of the *.glb to load.
+* @param objectId The objectId for the gltfs later identification.
 * @example GLTFA_File *gltf = loadGLTF_Character("girl1.glb");
 */
-class GLTFA_File *loadGLTF_Character(const char *name);
+class GLTFA_File *loadGLTF_Character(const char *name, unsigned int objectId);
 
 /**
 * This function animates a gltf which is used as a game character. Including bone setups.
 *
-* @param gltf the gltf file which should be animated.
+* @param gltf The gltf file which should be animated.
 * @param frame The frame number of the animation.
 * @example animateGLTF_Character(gltf, 8.0);
 */
@@ -44,7 +49,7 @@ void animateGLTF_Character(class GLTFA_File *gltf, double frame);
 /**
 * This function renders a gltf which is used as a game character. Including bone setups.
 *
-* @param gltf the gltf file which should be rendered.
+* @param gltf The gltf file which should be rendered.
 * @example renderGLTF_Character(gltf);
 */
 void renderGLTF_Character(class GLTFA_File *gltf);
