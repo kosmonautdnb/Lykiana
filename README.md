@@ -1,3 +1,3 @@
-# Lykiana
+# Nora's workday
 
-an upcoming game with WatcomGL.
+A tiny example of what you can do with WatcomGL (DJGPP/WatcomC/OpenWatcom) on FreeDOS.
