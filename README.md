@@ -1,28 +1,32 @@
-# Nora's workday  
+# Nora's Workday
 
-**A presentation of the game on Youtube**: https://www.youtube.com/watch?v=sGpmDqRiE00  
+**A presentation of the game on YouTube**: https://www.youtube.com/watch?v=sGpmDqRiE00
 
-Nora's workday is a tiny example game, of what you can actually do with WatcomGL. An OpenGL for FreeDOS and **WatcomC / OpenWatcom / DJGPP**.  
+Nora's Workday is a small example game that demonstrates the possibilities of WatcomGL. WatcomGL is an OpenGL framework for FreeDOS and uses **WatcomC / OpenWatcom / DJGPP**.
 
-It is a fast coded game where you have to recolor some jumping spheres which are on their way through Nora's realm.  
+In this quickly programmed game, you have to change the color of bouncing balls moving through Nora's world.
 
-In the game you are the protagonist Nora which can use it's "recoloring" portals to change the clothes and recolor the jumping and moving spheres differently.  
+You play as the protagonist, Nora, and can use her "change" portals to alter her clothing and recolor the bouncing and moving balls.
 
-You get some money by recoloring the spheres. If the workday is done you see the amount of money you collected throughout your entire workday.  
+By changing the colors of the balls, you earn money. At the end of the workday, you can see how much money you have collected.
 
-There are two precompiled .exe files for FreeDOS:  
+There are two pre-compiled .exe files for FreeDOS:
 
-**"NORA1_DJ.EXE"** which starts the game with DJGPP, it has the resolution of 640x480 then and shows the strength of DJGPP as a compiler by the much faster performance.  
-**"NORA1_OW.EXE"** which starts the game with OpenWatcom2.0, it has the resolution of 320x200 and runs also very performant.   
+**"NORA1_DJ.EXE"** starts the game using DJGPP. The resolution is 640x480. The significantly higher performance demonstrates the strength of DJGPP as a compiler.
 
-I think it is a good way to use WatcomC++ 11.0 for developing, because of the compilation speed, and DJGPP for the final product / game because of it's good performance.  
+**"NORA1_OW.EXE"** starts the game with OpenWatcom 2.0. The resolution is 320x200. This file also runs very efficiently.
 
-**How to build it:**  
+I recommend using WatcomC++ 11.0 for development, as it compiles quickly, and DJGPP for the finished game, as it offers good performance.
 
-You need a **RamDisk at R:**, instructions on how to install it are in the AUTOEXEC.BAT in the _BUILD/ folder, the RAMDISK exe is in the _BUILD/ folder, too.  
+**Compilation:**
 
-**run !CLEAN.BAT** that does a clean of R:/.  
-**run !MAKE.BAT** compiles the whole project and creates R:/MAIN.EXE with WatcomC 11.0 or any other WatcomC/OpenWatcom, you can also choose DJGPP in the batch file by setting DJGPPCOMPILE to 1.  
-**run !RUN.BAT** starts the game from R:/MAIN.EXE.  
+You will need a **RAM disk on R:**. Installation instructions can be found in AUTOEXEC.BAT in the _BUILD/ folder. The RAMDISK file (.exe) is also located in the _BUILD/ folder.
 
-The game just accesses the **DATA/** folder which includes all the assets of the game.
+**Run !CLEAN.BAT** to clean the R:/ directory.
+
+
+**Run !MAKE.BAT** to compile the entire project and create the file **R:/MAIN.EXE** with WatcomC 11.0 or another WatcomC/OpenWatcom version. Alternatively, you can select DJGPP in the batch file by setting DJGPPCOMPILE to 1.
+
+**Run !RUN.BAT** to launch the game from **R:/MAIN.EXE**.
+
+The game will access the **DATA/** folder, which contains all the game data.
