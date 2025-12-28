@@ -75,7 +75,7 @@ class Landscape {
 public:
 
   /// the array with all the landscape elements
-  Array<LandscapeElement> scape;
+  Array<LandscapeElement> elements;
 
   /// The minimum and maximum in X dimension of the positions of the landscape.
   float minX, maxX;
@@ -114,14 +114,14 @@ public:
   * Collects all the landscape elements which are in a certain distance from the camera. 
   * The distance can also be controlled by the "detailScale".
   *
-  * @param elements An array that gets filled with the landscape elements that are near the camera. My Array class doesn't realloc on array shrinks.
+  * @param collected An array that gets filled with the landscape elements that are near the camera. My Array class doesn't realloc on array shrinks.
   * @param cx The cameras X position in world space.
   * @param cy The cameras Y position in world space.
   * @param cz The cameras Z position in world space.
   * @param detailScale This gets multiplied by all of the elements distanceThresholdSquared properties to have them fade in earlier or later, 1.0 is a good default.
   * @example scape->collectLandscape(&elements, 0,0,0, 1.0);
   */
-  void collectLandscape(Array<LandscapeElement*> *elements, const float cx, const float cy, const float cz, const float detailScale);
+  void collectLandscape(Array<LandscapeElement*> *collected, const float cx, const float cy, const float cz, const float detailScale);
 
   /**
   * Removes landscape elements with the given type

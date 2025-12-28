@@ -191,10 +191,11 @@ void LandscapeCollision::normal(double x, double z, double *nx, double *nz) {
 *
 * @param x A world space coordinate in x.
 * @param z A world space coordinate in z.
-* @param rad A radius in world space
+* @param rad A radius in world space (0 or negative doesn't add a circle at all)
 * @example scape->placeCircle(225.5,225.5,2.0);
 */
 void LandscapeCollision::placeCircle(double x, double z, double rad) {
+  if (rad<=0) return;
   const double rad2 = rad * 2.0;
   const int xp0 = xCoord(x-rad2);
   const int zp0 = zCoord(z-rad2);

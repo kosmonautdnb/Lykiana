@@ -1,0 +1,35 @@
+# Blender 4.2.1 LTS MTL File: 'None'
+# www.blender.org
+
+newmtl dragon_body
+Ns 93.802483
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd dragon body_Base_Color.jpg
+map_Bump -bm 0.600000 DRAGON-lp_dragon body_Normal.jpg
+
+newmtl dragon_head
+Ns 94.457268
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd dragon head_Base_Color.jpg
+map_Bump -bm 1.000000 DRAGON-lp_dragon head_Normal.jpg
+
+newmtl wings,_teeth,_eye
+Ns 11.900830
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd DRAGON-wings_wings, teeth, eye_BaseColor.jpg
+map_Bump -bm 0.700000 DRAGON-wings_wings, teeth, eye_Normal.jpg

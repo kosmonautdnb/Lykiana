@@ -47,23 +47,23 @@ Landscape::~Landscape() {if (map_height != NULL) {delete[] map_height; map_heigh
 * Collects all the landscape elements which are in a certain distance from the camera. 
 * The distance can also be controlled by the "detailScale".
 *
-* @param elements An array that gets filled with the landscape elements that are near the camera. My Array class doesn't realloc on array shrinks.
+* @param collected An array that gets filled with the landscape elements that are near the camera. My Array class doesn't realloc on array shrinks.
 * @param cx The cameras X position in world space.
 * @param cy The cameras Y position in world space.
 * @param cz The cameras Z position in world space.
 * @param detailScale This gets multiplied by all of the elements distanceThresholdSquared properties to have them fade in earlier or later, 1.0 is a good default.
 * @example scape->collectLandscape(&elements, 0,0,0, 1.0);
 */
-void Landscape::collectLandscape(Array<LandscapeElement*> *elements, const float cx, const float cy, const float cz, const float detailScale) {
+void Landscape::collectLandscape(Array<LandscapeElement*> *collected, const float cx, const float cy, const float cz, const float detailScale) {
   const float k = detailScale;
-  elements->clear();
-  LandscapeElement *e = &scape[0];
-  for(int i = scape.size() - 1; i >= 0; i--) {
+  collected->clear();
+  LandscapeElement *e = &elements[0];
+  for(int i = elements.size() - 1; i >= 0; i--) {
     const float dx = e->x - cx;
     const float dy = e->y - cy;
     const float dz = e->z - cz;
     if (dx*dx + dy*dy + dz*dz < e->distanceThresholdSquared*k) {
-      elements->push_back(e);
+      collected->push_back(e);
     }
     e++;
   }
@@ -76,9 +76,9 @@ void Landscape::collectLandscape(Array<LandscapeElement*> *elements, const float
 * @example scape->removeElementsWithType(LANDSCAPE_TYPE_OBJECT);
 */
 void Landscape::removeElementsWithType(unsigned int type) {
-  for(int i = scape.size() - 1; i >= 0; i--) {
-    if (scape[i].type == type) {
-      scape.erase(i,1);
+  for(int i = elements.size() - 1; i >= 0; i--) {
+    if (elements[i].type == type) {
+      elements.erase(i,1);
     }
   }
 }
@@ -188,8 +188,8 @@ void Landscape::setHeightMap(unsigned char *mask, unsigned short *map, unsigned 
   map_height = map;
   map_height_w = w;
   map_height_h = h;
-  int k = scape.size();
-  scape.resize(k + (w/stepX)*(h/stepZ));
+  int k = elements.size();
+  elements.resize(k + (w/stepX)*(h/stepZ));
   for (int z = 0; z < h; z += stepZ) {
     int tz = h; while((z % tz)!=0) tz>>=1;
     for (int x = 0; x < w; x += stepX) {
@@ -204,7 +204,7 @@ void Landscape::setHeightMap(unsigned char *mask, unsigned short *map, unsigned 
       const float vy = (v_n+v_p)*0.5-v__;
       const float v = sqrt(vx*vx+vy*vy);
       if (v < steepThresh && (!border)) continue;
-      LandscapeElement *e = &scape[k]; k++;
+      LandscapeElement *e = &elements[k]; k++;
       e->x = (maxX-minX)*x/w+minX;
       e->y = (maxY-minY)*v__/65535.0+minY;
       e->z = (maxZ-minZ)*z/h+minZ;
@@ -224,7 +224,7 @@ void Landscape::setHeightMap(unsigned char *mask, unsigned short *map, unsigned 
       e->distanceThresholdSquared = siz * siz;
     }
   }
-  scape.resize(k);
+  elements.resize(k);
 }
 
 /**
@@ -248,8 +248,8 @@ void Landscape::setObjects(unsigned int *rgba, unsigned int w, unsigned int h) {
         float px = (maxX-minX)*x/w+minX;
         float pz = (maxZ-minZ)*z/h+minZ;
         float py = getHeight(px,pz);
-        scape.push_back(LandscapeElement());
-        LandscapeElement *e = &scape.back();
+        elements.push_back(LandscapeElement());
+        LandscapeElement *e = &elements.back();
         e->x = px;
         e->y = py;
         e->z = pz;
@@ -261,6 +261,7 @@ void Landscape::setObjects(unsigned int *rgba, unsigned int w, unsigned int h) {
         switch(p0-1) {
         case 3: // portal
         case 4: {siz *= 3;} break; // dragon
+        case 6: {siz *= 2;} break; // stepable portals
         }
         e->distanceThresholdSquared = siz * siz;
       }
@@ -279,8 +280,8 @@ void Landscape::setObjects(unsigned int *rgba, unsigned int w, unsigned int h) {
 * @example scape->insertEmpty(512.2,512.2,1024,1024,750.f);
 */
 void Landscape::insertEmpty(float x2, float z2, int w, int h, float distFact) {
-  scape.push_back(LandscapeElement());
-  LandscapeElement *e = &scape.back();
+  elements.push_back(LandscapeElement());
+  LandscapeElement *e = &elements.back();
   e->x = (maxX-minX)*x2/w+minX;
   e->z = (maxZ-minZ)*z2/h+minZ;
   e->y = getHeight(e->x,e->z);
@@ -368,8 +369,8 @@ void Landscape::setTrees(unsigned char *mask, unsigned char *map, unsigned int w
       const unsigned char v__ = map[x+z*w];
       if (v__!=0) {
         if ((r1 % randomModulo)==0) {
-          scape.push_back(LandscapeElement());
-          LandscapeElement *e = &scape.back();
+          elements.push_back(LandscapeElement());
+          LandscapeElement *e = &elements.back();
           e->x = (maxX-minX)*(x)/w+minX;
           e->z = (maxZ-minZ)*(z)/h+minZ;
           int bigTree = r6/220 > 0 ? 1 : 0;
@@ -421,10 +422,10 @@ void Landscape::setGrass(unsigned char *mask, unsigned char *map, unsigned int w
         const float d = sqrt(dx*dx+dy*dy);
         bool notSteep = d < 0.5;
         if ((r1 % randomModulo)==0&&notSteep) {
-          scape.push_back(LandscapeElement());
+          elements.push_back(LandscapeElement());
           float ox = (float)(r6 & 255)/255.f;
           float oz = (float)(r7 & 255)/255.f;
-          LandscapeElement *e = &scape.back();
+          LandscapeElement *e = &elements.back();
           e->x = (maxX-minX)*(x+ox)/w+minX;
           e->z = (maxZ-minZ)*(z+oz)/h+minZ;
           e->y = getHeight(e->x,e->z);
@@ -497,8 +498,8 @@ void Landscape::setStones(unsigned char *map, unsigned int w, unsigned int h, in
       const bool some = v__ >= threshOuter;
       const bool someNotAround = (vn_ < threshOuter) || (vp_ < threshOuter) || (v_n < threshOuter) || (v_p < threshOuter);
       if (some && someNotAround) {
-        scape.push_back(LandscapeElement());
-        LandscapeElement *e = &scape.back();
+        elements.push_back(LandscapeElement());
+        LandscapeElement *e = &elements.back();
         const float xd = hitThresh(v__,vn_,vp_,threshOuter);
         const float zd = hitThresh(v__,v_n,v_p,threshOuter);
         e->x = (maxX-minX)*(x+xd)/w+minX;
@@ -552,8 +553,8 @@ void Landscape::setWater(unsigned char *map, unsigned int w, unsigned int h, int
       const bool someNotAround = (vn_ < threshOuter) || (vp_ < threshOuter) || (v_n < threshOuter) || (v_p < threshOuter);
       const bool fillPoint = false;//some&&(((x % xk)==0)&&((z % zk)==0));
       if ((some && someNotAround) || fillPoint) {
-        scape.push_back(LandscapeElement());
-        LandscapeElement *e = &scape.back();
+        elements.push_back(LandscapeElement());
+        LandscapeElement *e = &elements.back();
         const float xd = hitThresh(v__,vn_,vp_,threshOuter);
         const float zd = hitThresh(v__,v_n,v_p,threshOuter);
         e->x = (maxX-minX)*(x+xd)/w+minX;
@@ -600,8 +601,8 @@ void Landscape::setFlowers(unsigned char *mask, unsigned char *map, unsigned int
       const unsigned char v__ = map[x+z*w];
       if (v__!=0) {
         if ((r1 % randomModulo)==0) {
-          scape.push_back(LandscapeElement());
-          LandscapeElement *e = &scape.back();
+          elements.push_back(LandscapeElement());
+          LandscapeElement *e = &elements.back();
           e->x = (maxX-minX)*(x)/w+minX;
           e->z = (maxZ-minZ)*(z)/h+minZ;
           e->y = getHeight(e->x,e->z)+0.5;
@@ -670,8 +671,8 @@ void Landscape::setRoads(unsigned char *map, unsigned int w, unsigned int h, int
       const bool some = v__ >= threshWayOuter;
       const bool someNotAround = (vn_ < threshWayOuter) || (vp_ < threshWayOuter) || (v_n < threshWayOuter) || (v_p < threshWayOuter);
       if (some && someNotAround) {
-        scape.push_back(LandscapeElement());
-        LandscapeElement *e = &scape.back();
+        elements.push_back(LandscapeElement());
+        LandscapeElement *e = &elements.back();
         const float xd = hitThresh(v__,vn_,vp_,threshWayOuter);
         const float zd = hitThresh(v__,v_n,v_p,threshWayOuter);
         e->x = (maxX-minX)*(x+xd)/w+minX;
@@ -682,8 +683,8 @@ void Landscape::setRoads(unsigned char *map, unsigned int w, unsigned int h, int
         e->distanceThresholdSquared = d;
        
         if ((rand() & 7)==0) {
-          scape.push_back(LandscapeElement());
-          LandscapeElement *e = &scape.back();
+          elements.push_back(LandscapeElement());
+          LandscapeElement *e = &elements.back();
           e->x = (maxX-minX)*(x+xd)/w+minX;
           e->z = (maxZ-minZ)*(z+zd)/h+minZ;
           e->y = getHeight(e->x,e->z);
@@ -699,8 +700,8 @@ void Landscape::setRoads(unsigned char *map, unsigned int w, unsigned int h, int
       const bool some2 = v__ >= threshWayInner;
       const bool someNotAround2 = (vn_ < threshWayInner) || (vp_ < threshWayInner) || (v_n < threshWayInner) || (v_p < threshWayInner);
       if (some2 && someNotAround2) {
-        scape.push_back(LandscapeElement());
-        LandscapeElement *e = &scape.back();
+        elements.push_back(LandscapeElement());
+        LandscapeElement *e = &elements.back();
         const float xd = hitThresh(v__,vn_,vp_,threshWayInner);
         const float zd = hitThresh(v__,v_n,v_p,threshWayInner);
         e->x = (maxX-minX)*(x+xd)/w+minX;
@@ -714,8 +715,8 @@ void Landscape::setRoads(unsigned char *map, unsigned int w, unsigned int h, int
         e->v0 = f*255.0;
 
         if ((rand() & 15)==0) {
-          scape.push_back(LandscapeElement());
-          LandscapeElement *e = &scape.back();
+          elements.push_back(LandscapeElement());
+          LandscapeElement *e = &elements.back();
           e->x = (maxX-minX)*(x+xd)/w+minX;
           e->z = (maxZ-minZ)*(z+zd)/h+minZ;
           e->y = getHeight(e->x,e->z);

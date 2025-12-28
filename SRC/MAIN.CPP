@@ -24,43 +24,160 @@
 #endif // __DJGPP__
 
 #ifndef PI
+/// PI
 #define PI 3.14159265358979323846
 #endif // PI
 
-double mouseX = 320, mouseY = 240;
-
-#define EDITLANDSCAPE
-//#define LOGFPS
-#define GL_LINEAR2 GL_LINEAR
-#define FASTTEXTURING GL_FALSE
-#define TREERTTSIZE 360
-
-struct meminfo {
-    unsigned LargestBlockAvail;
-    unsigned MaxUnlockedPage;
-    unsigned LargestLockablePage;
-    unsigned LinAddrSpace;
-    unsigned NumFreePagesAvail;
-    unsigned NumPhysicalPagesFree;
-    unsigned TotalPhysicalPages;
-    unsigned FreeLinAddrSpace;
-    unsigned SizeOfPageFile;
-    unsigned Reserved[3];
-} MemInfo;
-
-void setBiosCursor(int x, int y) {
-    union REGS r;
-    memset(&r,0,sizeof(r));
-    r.w.ax = 0x200;
-    r.h.bh = 0;
-    r.h.dl = (unsigned char)(x&255);
-    r.h.dh = (unsigned char)(y&255);
-    int386(0x10, &r, &r);
+/**
+* A fmod which handles negative values a bit "better"
+*
+* @param a the first parameter of the "fmod".
+* @param b the second parameter of the "fmod".
+* @return The return value of the fmod.
+* @example double a = sfmod(-0.5,1); returns 0.5.
+*/
+double sfmod(double a, double b) {
+  if (a>=0) return fmod(a,b);
+  return fmod(a+b*((int)(-a/b)+10),b);
 }
 
+/// Comment this in to place objects on the landscape. Using 'a' to 'h' for objects. And '1' to '8' for angle/scale.
+//#define EDITLANDSCAPE
+/// Currently all is rendered with bilinear filtering. You can switch e.g. to GL_NEAREST here.
+#define GL_LINEAR2 GL_LINEAR
+/// This is an OpenGL extension that seem to make sense just with WatcomC and maybe the more with GL_NEAREST
+#define FASTTEXTURING GL_FALSE
+/// The tree sprite object rendertarget size.
+#define TREERTTSIZE 360
+
+/// How many visitors should visit in a run (20 is the normal)
+#define BONGLECOUNT 20
+/// A factor to reducing/increase the details of the map (e.g. 1.0 is a good value)
+const double details = 1.0;
+
+/**
+* A class to manage the way of the "bongles"
+*/
+class WayPoint {
+
+public:
+
+  /// The X,Y,Z world space position of the waypoint.
+  double x,y,z;
+  /// The count/id of the waypoint.
+  int type;
+
+  /**
+  * Constructor of an "invalid" waypoint object.
+  */  
+  WayPoint() {
+    x = y = z = 0;
+    type = -1;
+  }
+
+  /**
+  * Constructor for constructing a waypoint object.
+  * @param _x This is the world space X position of the waypoint.
+  * @param _y This is the world space Y position of the waypoint.
+  * @param _z This is the world space Z position of the waypoint.
+  * @param _type A counting number for the waypoint "id".
+  * @example w = new WayPoint(0,0,0,10);
+  */
+  WayPoint(double _x, double _y, double _z, int _type) {
+    x = _x;
+    y = _y;
+    z = _z;
+    type = _type;
+  }
+
+};
+
+/// A global array of all waypoints (for simplicity)
+Array<WayPoint> wayPoints;
+
+/**
+* Gets the waypoint with the corresponding id(type).
+*
+* @param type The id of the waypoint to get. (type)
+* @return NULL or if there is a waypoint with this type the first occurence of a waypoint with this id/type.
+* @example WayPoint *w = getWayPoint(10);
+*/
+WayPoint *getWayPoint(int type) {
+  for (int i = 0; i < wayPoints.size(); i++) {
+    if (wayPoints[i].type == type) return &wayPoints[i];
+  }
+  return NULL;
+}
+
+/**
+* A particle, currently only used for the money display. A very temporary class.
+*/
+class Particle {
+
+public:
+
+  /// The particles text.
+  String text;
+  /// The particles 3D world space position
+  Vector pos;
+  /// The particles lifetime in seconds counting down to 0.
+  double lifeTime;
+
+};
+
+/// A global array of all particles (for simplicity)
+Array<Particle> particles;
+
+/**
+* A function that displays and updates all $... sprites.
+*
+* @param dt A time delta in seconds to animate the particles with.
+* @example displayParticles(0.1);
+*/
+void displayParticles(double dt) {
+  for (int i = 0; i < particles.size(); i++) {
+    Particle *p = &particles[i];
+    int alpha = p->lifeTime * 255;
+    if (alpha>255) alpha = 255;
+    if (alpha<0) alpha = 0;
+    const double fontScale = 0.5*glFrameBufferWidth/320;
+    glDrawTextTTF(0, p->pos.x, p->pos.y, p->pos.z, fontScale, p->text.c_str(), (alpha<<24)|0x00ffffff, 0.5, 0.5);
+    p->pos.y += dt * 1;
+    p->lifeTime -= dt;
+    if (p->lifeTime < 0) {
+      particles.erase(i,1);
+      i--;
+    }
+  }
+}
+
+/**
+* A function adding another $... sprite to the scenery/particles.
+*
+* @param pos The position of the particle.
+* @param text The text to display.
+* @example addParticle(Vector(0,0,0),"$100");
+*/
+void addParticle(const Vector &pos, const String &text) {
+  Particle p;
+  p.text = text;
+  p.pos = pos;
+  p.lifeTime = 2.0;
+  particles.push_back(p);
+}
+
+/**
+* Blits a prerendered sprite with fog. Either fast(sprite routine) or slow(WatcomGL texture).
+* It uses the fogDensity and fogColor global var.
+*
+* @param sp The actual sprite object according to "SPRTEOBJ.HPP".
+* @param pos The 3D worldspace position of the sprite object.
+* @param scale The scale of the 3D Sprite (some sort of 3D Scale actually).
+* @param color The color to multiply the sprite color with.
+* @example blitSpriteObjectSprite_(sp, &Vector(0,0,0), 1.0, 0xffffffff);
+*/
 float fogDensity = 0.005;
 float fogColor[4]={0.25,0.5,1.0,1};
-
 void blitSpriteObjectSprite_(const SpriteObject *sp, const class Vector *pos, double scale, unsigned int color) {
   const bool fastVersion = true;
   if (fastVersion) {
@@ -86,15 +203,25 @@ void blitSpriteObjectSprite_(const SpriteObject *sp, const class Vector *pos, do
   }
 }
 
-SpriteObject tree[2];
+/// The 3D Sprite Object with FrameBuffer for one single tree that can be blitted multiple times into the scenery.
+SpriteObject tree[1];
 
 
+/// The 3D landscape definitions. Here you can paint the landscape into
 Landscape *scape;
+/// The 3D landscape triangle definitions and elements collected by camera distance.
 LandscapeRaw *raw;
+/// A sort of "heightmap" like collision structure that also delivers a normal (e.g. to slide) for collisions.
 LandscapeCollision *collision;
+/// Just for editing the landscape placing/removing objects and so on.
 LandscapeEdit *edit;
 
-void paintPortal() {
+/**
+* A function to paint a bigger red rectangle "fountain" looking portal denoting a level exit.
+*
+* @example paintLevelExitPortal();
+*/
+void paintLevelExitPortal() {
   const double s = glSeconds();
   glDisable(GL_CULL_FACE);
   glEnable(GL_BLEND);
@@ -125,14 +252,56 @@ void paintPortal() {
   glEnable(GL_CULL_FACE);
 }
 
-const double r = 0.002;
-
-Vector getTexCoord(const Vector &xz) {
-  return Vector(xz.x*r+0.5,xz.z*r+0.5);
+/**
+* A function to paint a platform that emits colored particles used for Noras "recoloring".
+*
+* @param color A color for the emited particles.
+* @example paintGirlRecolorPortal(Vector(1,0,0,0));
+*/
+void paintGirlRecolorPortal(const Vector &color) {
+  const double s = glSeconds();
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_BLEND);
+  glBlendFunc(GL_ONE, GL_ONE);
+  glDisable(GL_TEXTURE_2D);
+  glBegin(GL_QUADS);
+  const float xp[4] = {1,-1,-1,1};
+  const float yp[4] = {1,1,-1,-1};
+  srand(0);
+  for (int j = 0; j < 50; j++) {
+    const double phase = (double)(rand() & 255) / 255.0;
+    const double pos = fmod(s*0.5+phase,1.0);
+    double ya = (double)((rand() & 255)+128)/256.0;
+    const double posX = (double)((rand() & 511)-256)/255.0*0.5;
+    const double posY = ya * pos * 4.0;
+    const double posZ = (double)((rand() & 511)-256)/255.0*0.5;
+    const double sizX = ((rand() & 255)+128)/256.0*0.25*0.25;
+    const double sizY = ((rand() & 255)+128)/256.0*0.25*0.25;
+    const double f = 1-pos;
+    const double a = pos*4.0+(double)(rand() & 255) / 255.0;
+    glColor4f(color.x,color.y,color.z,1);
+    for (int i = 0; i < 4; i++) {
+      glVertex3f(xp[i]*sin(a)*sizX+posX,yp[i]*sizY+posY,xp[i]*cos(a)*sizX+posZ);
+    }
+  }
+  glEnd();
+  glDisable(GL_BLEND);
+  glEnable(GL_CULL_FACE);
 }
 
-unsigned int *texData;
-
+/**
+* Lighting the "colors" image with the direction of the normals in the "normals" image.
+*
+* @param colors The rgba base color image.
+* @param normals The rgba normal map image. Red (0..255) is normal map x(-1..1). Green (0..255) is normal map z(-1..1). Blue (0..255) is normal map y(-1..1). 
+* @param nx The X component of the normal to light the image. The normal gets normalized before.
+* @param ny The Y component of the normal to light the image. The normal gets normalized before.
+* @param nz The Z component of the normal to light the image. The normal gets normalized before.
+* @param exp The "specular like" power to use for the lighting.
+* @param mul A multiplication factor for the light.
+* @param thresh A threshold for the light to start influencing. It gets subtracted before the pow/mul.
+* @example applyNormalMap(&rd,&rdn,1.0,1.0,1.0,3.0,10.0,0.2);
+*/
 void applyNormalMap(RGBAImage *colors,RGBAImage *normals,float nx,float ny,float nz, float exp, float mul, float thresh) {
   float l = sqrt(nx*nx+ny*ny+nz*nz);
   if (l != 0) {l = 1.f/l;}
@@ -165,6 +334,20 @@ void applyNormalMap(RGBAImage *colors,RGBAImage *normals,float nx,float ny,float
   }
 }
 
+/**
+* A function that blits a sprite of grass "blades" aligned to the camera direction, whilst waving them in the "wind".
+* blitGrassBlade uses ALPHA_TEST.
+*
+* @param texture The OpenGL texture.
+* @param w The width of the grass blade.
+* @param h The height of the grass blade.
+* @param pos The 3D world space position of the grass blade.
+* @param scale An overall scale for the grass blade.
+* @param color The color of the grass blade.
+* @param texAdd An u(x) "scroll" for displaying different looking grass blades.
+* @param time A time to animate the grass blades waving in the "wind".
+* @example blitGrassBlade(gr2, GRASSW*2*(e->v2/255.f*0.75f+0.125f), GRASSH, &v, (e->v1/255.f*0.7+0.3)*0.05, (0x000402*(e->v0))|0xff000000,e->v2/255.f,k);
+*/
 void blitGrassBlade(unsigned int texture, float w, float h, const class Vector *pos, double scale, unsigned int color, float texAdd, float time) {
   Matrix k;
   glGetDoublev(GL_MODELVIEW_MATRIX, k.m);
@@ -197,6 +380,14 @@ void blitGrassBlade(unsigned int texture, float w, float h, const class Vector *
   glPopMatrix();
 }
 
+/** 
+* A function that blits a flower tip into the scenery.
+* You have to set color and texture before. The flowers use ALPHA_TEST.
+*
+* @param pos A 3D world position of the flower tip.
+* @param siz A scale or size of the flower tip
+* @example blitFlower(&v,(e->v2/255.f*0.5+0.125)*2);
+*/
 void blitFlower(Vector *pos, float siz) {
   //glEnable(GL_POINT_SPRITE);
   //glTexEnvi(GL_POINT_SPRITE, GL_COORD_REPLACE, GL_TRUE);
@@ -214,6 +405,13 @@ void blitFlower(Vector *pos, float siz) {
   glDisable(GL_ALPHA_TEST);
 }
 
+/** 
+* Blits a big sprite. Used for the sun.
+* You have to set color and texture before. It uses ALPHA_TEST and blending.
+*
+* @param pos A 3D world position of the sun sprite.
+* @example blitSun(cameraPos+Vector(100,100,100));
+*/
 void blitSun(Vector *pos) {
   float c[3] = {1,0,0};
   glPointParameterfv(GL_POINT_DISTANCE_ATTENUATION, c);
@@ -232,11 +430,47 @@ void blitSun(Vector *pos) {
   glDisable(GL_ALPHA_TEST);
 }
 
-double sfmod(double a, double b) {
-  if (a>=0) return fmod(a,b);
-  return fmod(a+b*((int)(-a/b)+10),b);
+/**
+* Blits the birds on a randomly basis.
+*
+* @param pos The camera position.
+* @param time The time to animate the birds movement.
+* @param bird The birds mesh to be rendered per bird.
+* @example drawBirds(cameraPos, glSeconds(), bird);
+*/
+void drawBirds(const Vector &pos, double time, WAVOBJ_Mesh *bird) {
+  Matrix mv_,p_,mvp_;
+  glGetDoublev(GL_MODELVIEW_MATRIX,mv_.m);
+  glGetDoublev(GL_PROJECTION_MATRIX,p_.m);
+  mvp_ = p_ * mv_;
+  glDisable(GL_TEXTURE_2D);
+  glColor4f(1,1,1,1);
+  const double areaSize = 20.0;
+  srand(0);
+  for (int i = 0; i < 10; i++) {
+    Vector p(sfmod(-pos.x+(rand()&255)*0.25,areaSize*2)-areaSize,0,sfmod(-time*(1+(rand()&255)/255.0)-pos.z+(rand()&255)*0.25,areaSize*2)-areaSize);
+    p += pos;
+    p.y = scape->getHeightBox(p.x,p.z,3)+3+(rand()&255)/255.0;
+    Vector q = transform(p,mvp_);
+    if (q.z < 0) continue;
+    if (fabs(q.x)>fabs(q.w)*1.2) continue;
+    if (fabs(q.y)>fabs(q.w)*1.2) continue;
+    glPushMatrix();
+    glTranslatef(p.x,p.y,p.z);
+    paintMesh(bird);
+    glPopMatrix();
+  }
+  glEnable(GL_TEXTURE_2D);
 }
 
+/**
+* A function that tries to go the given way and stopping at a landscape collision.
+*
+* @param start The starting point of the walk to try.
+* @param end The ending point of the walk to try.
+* @return The end point of the tried walk and maybe a slide if it collided in between.
+* @example characterPos = tryWalk(characterPos, characterDest);
+*/
 Vector tryWalk(const Vector &start, const Vector &end) {
 
   Vector r = end;
@@ -266,6 +500,14 @@ Vector tryWalk(const Vector &start, const Vector &end) {
   return r;
 }
 
+/**
+* A debug function displaying the way points of the "bongles" the visitors of Noras realm.
+* The Y position is generated from the "heightmap".
+*
+* @param xp The 3D X world space position of the way point to show.
+* @param zp The 3D Z world space position of the way point to show.
+* @param text The text to show on this 3D world space position.
+*/
 void drawLandscapeText(double xp, double zp, const char *text) {
   double yp = scape->getHeight(xp,zp) + 1;
   glColor4f(1,0,0,1);
@@ -277,65 +519,376 @@ void drawLandscapeText(double xp, double zp, const char *text) {
   glVertex3f(xp,yp,zp);
   glVertex3f(xp,scape->getHeight(xp,zp),zp);
   glEnd();
-  glDrawText3DTTF(0, xp, yp, zp, 1.f, text, 0xffffffff, 0.5, 1.f);
+  glDrawText3DTTF(0, xp, yp, zp, 2.f, text, 0xffffffff, 0.5, 1.f);
 }
 
-#define OBJECTSPNG "DATA/MAPS/1/OBJECTS.PNG"
+/// The players current money
+int money = 0;
+/// Some little helper to let the HUD blink on money collections. (for simplicity)
+unsigned int moneyColorAdd = 0;
 
-const double details = 1.0;
-Vector characterPos(0,0,0);
-Vector cameraPos = characterPos;
+/**
+* A function that adds money if you collide with a "bongle" by the playertype/playerclothings
+* Very temporary.
+*
+* @param type The player clothings type (0..3).
+* @param pos The collision point with the bongle on where to add the $... particle.
+* @example addMoney(2,Vector(0,0,0));
+*/
+void addMoney(int type, const Vector &pos) {
+  moneyColorAdd = 0xffffffff;
+  const int moneys[4] = {
+    100,
+    500,
+    300,
+    350};
+  addParticle(pos+Vector(0,1,0),String("$")+String::fromInt(moneys[type & 3]));
+  money += moneys[type & 3];
+}
 
-void drawBirds(const Vector &pos, double time, WAVOBJ_Mesh *bird) {
-  Matrix mv_,p_,mvp_;
-  glGetDoublev(GL_MODELVIEW_MATRIX,mv_.m);
-  glGetDoublev(GL_PROJECTION_MATRIX,p_.m);
-  mvp_ = p_ * mv_;
+/// The OpenGL "Lykia - Nora's workday!" texture.
+unsigned int logoTexture;
+/// Very temporary "Lykia - Nora's workday!" texture width.
+unsigned int logoWidth;
+/// Very temporary "Lykia - Nora's workday!" texture height.
+unsigned int logoHeight;
+/// This is the current fade value of the start screen.
+double logoFade = 1;
+/// This gets set to 0 to fade out the start screen.
+double logoFadeDest = 1;
+
+/**
+* This function paints a little introductory screen at start, which gets faded out by any keyboard input.
+* @example drawStartScreen();
+*/
+void drawStartScreen() {
+  if (logoFade == 0) return;
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0,1280,720,0,-1,1);
+
+
   glDisable(GL_TEXTURE_2D);
-  glColor4f(1,1,1,1);
-  const double areaSize = 20.0;
-  srand(0);
-  for (int i = 0; i < 10; i++) {
-    Vector p(sfmod(-pos.x+(rand()&255)*0.25,areaSize*2)-areaSize,0,sfmod(-time*(1+(rand()&255)/255.0)-pos.z+(rand()&255)*0.25,areaSize*2)-areaSize);
-    p += pos;
-    p.y = scape->getHeightBox(p.x,p.z,3)+3+(rand()&255)/255.0;
-    Vector q = transform(p,mvp_);
-    if (q.z < 0) continue;
-    if (fabs(q.x)>fabs(q.w)*1.2) continue;
-    if (fabs(q.y)>fabs(q.w)*1.2) continue;
-    glPushMatrix();
-    glTranslatef(p.x,p.y,p.z);
-    paintMesh(bird);
-    glPopMatrix();
-  }
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+
+  const double k = 1 - logoFade * 0.85;
+  glBegin(GL_QUADS);
+  glColor4f(k,k,k,k);
+  glVertex3f(1280,0,0);
+  glVertex3f(0,0,0);
+  glVertex3f(0,720,0);
+  glVertex3f(1280,720,0);
+  glEnd();
+
+  glDisable(GL_BLEND);
+
+  glEnable(GL_ALPHA_TEST);
+  glAlphaFunc(GL_GREATER, 0.5);
   glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, logoTexture);
+
+  const double aspect = (double)logoHeight/logoWidth*1280.0/720.0;
+  const double s = 0.75;
+
+  glBegin(GL_QUADS);
+  glColor4f(1,1,1,1);
+  glTexCoord2f(1,0); glVertex3f(1280/2+1280/2*s,0,0);
+  glTexCoord2f(0,0); glVertex3f(1280/2-1280/2*s,0,0);
+  glTexCoord2f(0,1*logoFade); glVertex3f(1280/2-1280/2*s,720*aspect*s*logoFade,0);
+  glTexCoord2f(1,1*logoFade); glVertex3f(1280/2+1280/2*s,720*aspect*s*logoFade,0);
+  glEnd();
+
+  glDisable(GL_ALPHA_TEST);
+  glDisable(GL_TEXTURE_2D);
+
+
+  const double fontScale = 0.5*glFrameBufferWidth/320;
+
+  const double y = 720*aspect*s - 16;
+  const double line = 53;
+  unsigned int alpha = (unsigned int)(logoFade*255)*0x01000000;
+  glDrawTextTTF(0, 1280/2, y+line*0, 0, fontScale, "Nora! Your job is to wisen", 0x00ffffff|alpha, 0.5, 0.5);
+  glDrawTextTTF(0, 1280/2, y+line*1, 0, fontScale, "a group of nearby visitors with your energy.", 0x00ffffff|alpha, 0.5, 0.5);
+  glDrawTextTTF(0, 1280/2, y+line*2, 0, fontScale, "The group has a sight seeing tour", 0x00ffffff|alpha, 0.5, 0.5);
+  glDrawTextTTF(0, 1280/2, y+line*3, 0, fontScale, "starting just now.", 0x00ffffff|alpha, 0.5, 0.5);
+  glDrawTextTTF(0, 1280/2, y+line*4, 0, fontScale, "Use your energy portals to do this.", 0x00ffffff|alpha, 0.5, 0.5);
+  glDrawTextTTF(0, 1280/2, y+line*5, 0, fontScale, "Earn as much money as possible.", 0x00ffffff|alpha, 0.5, 0.5);
+
+
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
 }
 
-#define SUNWIDTH 256
-#define SUNHEIGHT 256
-unsigned int sun[SUNWIDTH*SUNHEIGHT];
+/**
+* A function to display a Head Up Display.. Currently just displaying the money count.
+* @example displayHud();
+*/
+void displayHud() {
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  glOrtho(0,1280,720,0,-1,1);
 
+  String mon = String("$")+String::fromInt(money);
+  const double fontScale = 0.5*glFrameBufferWidth/320;
+
+  {
+    const double xs = 4;
+    const double ys = 4;
+    const unsigned int shadowColor = 0xff0080ff;
+    glDrawTextTTF(0, -xs, 0, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, +xs, 0, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, -xs, -ys, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, +xs, -ys, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, -xs, +ys, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, +xs, +ys, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, 0, -ys, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+    glDrawTextTTF(0, 0, +ys, 0, fontScale, mon.c_str(), shadowColor, 0, 0);
+  }
+
+  int r = (moneyColorAdd & 255);
+  int g = ((moneyColorAdd>>8) & 255);
+  int b = ((moneyColorAdd>>16) & 255);
+  r *= 0.8f;
+  g *= 0.8f;
+  b *= 0.8f;
+  moneyColorAdd = (r)|(g<<8)|(b<<16);
+  r += 0;
+  g += 0;
+  b += 0;
+  if (r > 0xff) r = 0xff;
+  if (g > 0xff) g = 0xff;
+  if (b > 0xff) b = 0xff;
+
+  glDrawTextTTF(0, 0, 0, 0, fontScale, mon.c_str(), (r)|(g<<8)|(b<<16)|0xff000000, 0, 0);
+
+
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
+}
+
+/// The player/character 3D world space position. Gets initialized with 0,0,0.
+Vector characterPos;
+/// The camera 3D world space position. Gets initialized with 0,0,0.
+Vector cameraPos;
+/// The player clothings type. Values are 0..3 for the different "player outfits".
+int playerType = 0;
+
+/**
+* A class for a "visitor" a travelling little blob/sphere that travels through the scenery.
+*/
+class Bongle {
+
+public:
+
+  /// The current 3D world space position of the "bongle"
+  Vector pos;
+  /// The current 3D walk direction of the "bongle"
+  Vector dir;
+  /// The current animation time of the bongle used for animating it.
+  double animTime;
+  /// The color id of the "bongle"
+  int color;
+  /// The last "passed" waypoint
+  int wayPoint;
+  /// The walk speed of this "bongle"
+  double speed;
+  /// Just a little "physics" to let the "bongle" jump, this is the current height.
+  double jump;
+  /// Just a little "physics" to let the "bongle" jump, this is the current jump velocity.
+  double jumpAdd;
+
+  Bongle(WayPoint *w = NULL) {
+    color = -1;
+    animTime = (rand() & 255)/255.0*10.0;
+    wayPoint = 0;
+    jump = 0;
+    jumpAdd = 0;
+    if (w != NULL) {
+      wayPoint = w->type;
+      pos.x = w->x;
+      pos.y = w->y;
+      pos.z = w->z;
+    }
+    speed = (rand() & 255) / 255.0 + 1.0;
+  }
+
+  /**
+  * A function that draws the "bongle".
+  * @example bongle->draw();
+  */
+  void draw() const {
+    const double VISIBLEDISTANCE = 300.0;
+    const double lc = length(cameraPos - pos);
+    if (lc > VISIBLEDISTANCE) return;
+    Vector portalColors[4];
+    portalColors[0] = Vector(1,0,0);
+    portalColors[1] = Vector(0,1,1);
+    portalColors[2] = Vector(1,0.5,0);
+    portalColors[3] = Vector(1,0,0.5);
+    Vector col = Vector(1,1,1,1);
+    if (color >= 0 && color < 4)
+      col = portalColors[color];
+    glDisable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+    glBegin(GL_QUADS);
+    glColor4f(col.x, col.y, col.z, 1);
+    const int SEGMENTS = 8;
+    const int SECTORS = 5;
+    const float radius = 0.5f * (sin(animTime*4.0)*0.1+0.9);
+    const float k2 = (sin(animTime*8.0)*0.1+0.9);
+    const float k3 = 1 + 1.0/k2*0.2;
+    for (int y = 0; y < SECTORS; y++) {
+      for (int x = 0; x < SEGMENTS; x++) {
+        int xa[4] = {1,0,0,1};
+        int ya[4] = {0,0,1,1};
+        for (int i2 = 0; i2 < 4; i2++) {
+          const double ax = (double)(x + xa[i2]) * PI * 2 / SEGMENTS;
+          const double ay = (double)(y + ya[i2]) * PI / SECTORS;
+          const double nx = sin(ax) * sin(ay);
+          const double ny = cos(ay);
+          const double nz = cos(ax) * sin(ay);
+          const double px = pos.x + nx * radius * k3;
+          const double py = pos.y + radius * k2 + ny * radius * k2;
+          const double pz = pos.z + nz * radius * k3;
+          glNormal3d(nx,ny,nz);
+          glVertex3f(px,py,pz);
+        }
+      }
+    }
+    glEnd();
+  }
+
+  /**
+  * A function that updates the "bongle" and let's it walk.
+  * @example bongle->walk(0.1);
+  */
+  void walk(double dt) {
+    WayPoint *a = getWayPoint(wayPoint);
+    WayPoint *b = getWayPoint(wayPoint+1);
+    if ((a != NULL) && (b != NULL)) {
+      Vector av = Vector(a->x, a->y, a->z);
+      Vector bv = Vector(b->x, b->y, b->z);
+      Vector lv = bv - av;
+      Vector n = normalize(lv);
+      dir = n;
+      if (dot(pos - bv,n) > 0) wayPoint++;
+    }
+    animTime += dt;
+    pos += dir * speed * dt;
+    pos.y = scape->getHeight(pos.x, pos.z) + jump;
+    jump += jumpAdd * dt;
+    jumpAdd -= 64.0 * dt;
+    if (jump < 0) {jumpAdd = 0; jump = 0;}
+
+    double pd = length(characterPos.xz() - pos.xz());
+    if (pd < 1.0) {
+      if (playerType != color) {
+        jumpAdd = 4.0;
+        addMoney(color, pos);
+      }
+      color = playerType;
+    }
+  }
+
+};
+
+/// A very temporary global array for all the "bongles".
+Array<Bongle> bongles;
+
+/**
+* A function that paints all the "bongles".
+*
+* @example drawBongles();
+*/
+void drawBongles() {
+  glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHT0);
+  glEnable(GL_COLOR_MATERIAL);
+  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+  float sp[4]={1,1,1,1};glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,sp);
+  float am[4]={1,1,1,1};glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,am);
+
+  for (int i = 0; i < bongles.size(); i++) {
+    const Bongle *b = &bongles[i];
+    b->draw();
+  }
+
+  glDisable(GL_LIGHTING);
+}
+
+/**
+* A function to be called periodically updating the bongles positions.
+*
+* @param dt A time delta in seconds.
+* @example updateBongles(0.1);
+*/
+void updateBongles(const double dt) {
+  for (int i = 0; i < bongles.size(); i++) {
+    Bongle *b = &bongles[i];
+    b->walk(dt);
+  }
+}
+
+/**
+* The main function.
+*/
 int main(int argc, const char **argv) {
+
+  printf("----------------------------\n");
+  printf("Noras workday!\n");
+  printf("----------------------------\n");
+  printf("A little game to demonstrate the capabilities of WatcomGL.\n");
+  printf("WatcomGL is an almost complete oldschool OpenGL implementation\n");
+  printf("for WatcomC++ 11.0, OpenWatcom, DJGPP.\n");
+  printf("You can find WatcomGL at the following location:\n");
+  printf("https:/""/github.com/kosmonautdnb/WatcomGL\n");
+  printf("----------------------------\n");
+#if defined(__WATCOMC__) && (__WATCOMC__ <= 1100)
+  printf("WatcomC %d.%d Version\n",__WATCOMC__/100,__WATCOMC__ % 100);
+#endif
+#if defined(__WATCOMC__) && (__WATCOMC__ > 1100)
+  printf("OpenWatcom Version %d.%d\n",__WATCOMC__/100-11,__WATCOMC__ % 100);
+#endif
+#if defined(__DJGPP__)
+  printf("DJGPP Version\n");
+#endif
 
   glFastTexturing = FASTTEXTURING;
 
   class GLTFA_File *girl;
-  girl = loadGLTF_Character("c:/meshes/vd_grl1f.glb",GLTF_OBJECTID_MAINCHARACTER_NORMAL);
+  girl = loadGLTF_Character("DATA/MESHES/VD_GRL1F.GLB",GLTF_OBJECTID_MAINCHARACTER_NORMAL);
+  //logGLTFNodes(girl);
+  RGBAImage logo = RGBAImage::fromFile("DATA/IMAGES/LOGO.PNG");
+  logoWidth = logo.width;
+  logoHeight = logo.height;
+  glGenTextures(1,&logoTexture);
+  glBindTexture(GL_TEXTURE_2D,logoTexture);
+  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA, logo.width, logo.height, 0, GL_RGBA, GL_BYTE, logo.data);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  updateClothings(0);
 
   glWatcomPrecisionTimer(GL_TRUE);
-#ifdef LOGFPS
-  glVesa(320,200,32);
-#else
 
 #ifdef __WATCOMC__
-  //glVGA();
-  glVesa(320,200,32);
+  if (!glVesa(320,200,32)) glVGA();
 #else
-  glVesa(640,480,16);
+  if (!glVesa(640,480,16)) glVGA();
 #endif
-
-#endif
-  //glVesa(640,480,32);
   glRefresh();
 
   unsigned int font = stb_initfont(0, "DATA/FONTS/LIBESANS.TTF", 32.f);
@@ -351,14 +904,17 @@ int main(int argc, const char **argv) {
   //tre[0] = loadOBJ("c:/MESHES/TREE2/TREE.OBJ");
   tre[0] = loadTreeOBJ("c:/MESHES/EZTREE/PINELRG/PINELRG.OBJ");
   WAVOBJ_Mesh *objs[16];
-  objs[0] = loadOBJ("c:/MESHES/LAMPS/SLAMP1_B.OBJ",false,1);
-  objs[1] = loadOBJ("c:/MESHES/LAMPS/FENCE_S1.OBJ",false,0.5);
-  objs[2] = loadOBJ("c:/MESHES/LAMPS/SHIELD_1.OBJ",false,0.5);
-  objs[4] = loadOBJ("c:/MESHES/dragon/dragon1.OBJ",false,0.75);
-  objs[5] = loadOBJ("c:/MESHES/ghosts/ghost1.OBJ",false,0.25, Vector(0,0.5,0), true);
-  unsigned int dragonTexture = SMPL_loadTexture2("c:/MESHES/dragon/dbody.jpg","map_Kd");
+  objs[0] = loadOBJ("DATA/MESHES/SLAMP1_B.OBJ",false,1); // 'a' lamp
+  objs[1] = loadOBJ("DATA/MESHES/FENCE_S1.OBJ",false,0.5); // 'b' fence
+  objs[2] = loadOBJ("DATA/MESHES/SHIELD_1.OBJ",false,0.5); // 'c' way mark display
+  // 'd' is portal
+  objs[4] = loadOBJ("DATA/MESHES/DRAGON1.OBJ",false,0.75); // 'e' dragon
+  objs[5] = loadOBJ("DATA/MESHES/GHOST1.OBJ",false,0.25, Vector(0,0.5,0), true); // 'f' studio ghibly ghost
+  objs[6] = loadOBJ("DATA/MESHES/PORTAL.OBJ",false,1.0, Vector(0,0.1,0)); // 'g' portal
+  // 'h' is bongle way mark
+  unsigned int dragonTexture = SMPL_loadTexture2("DATA/MESHES/DBODY.JPG","map_Kd");
   //tre[1] = loadOBJ("c:/MESHES/TREE3/TREE.OBJ", true);
-  WAVOBJ_Mesh *bird = loadOBJ("c:/MESHES/pigeon1.OBJ",false,1.0);
+  WAVOBJ_Mesh *bird = loadOBJ("DATA/MESHES/PIGEON1.OBJ",false,1.0);
 
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_CULL_FACE);
@@ -393,7 +949,7 @@ int main(int argc, const char **argv) {
 
   Vector clearColor;
 
-  RGBAImage pn = RGBAImage::fromFile("c:/GRAPHICS/PANORAMA/1/PANORA~4.PNG");
+  RGBAImage pn = RGBAImage::fromFile("DATA/IMAGES/PANORA~4.PNG");
   {
     for (int y = 0; y < pn.height; y++) {
       double fogValue = (float)y / pn.height;
@@ -421,7 +977,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-  RGBAImage pn2 = RGBAImage::fromFile("c:/GRAPHICS/PANORAMA/1/PANORA~4.PNG");
+  RGBAImage pn2 = RGBAImage::fromFile("DATA/IMAGES/PANORA~4.PNG");
   {
     for (int y = 0; y < pn2.height/2; y++) {
       for (int x = 0; x < pn2.width; x++) {
@@ -537,6 +1093,10 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
+#define SUNWIDTH 256
+#define SUNHEIGHT 256
+  unsigned int *sun = (unsigned int*)malloc(SUNWIDTH*SUNHEIGHT*sizeof(unsigned int));
+
   {
     for (int y = 0; y < SUNHEIGHT; y++) {
       for (int x = 0; x < SUNWIDTH; x++) {
@@ -562,9 +1122,10 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  free(sun);
 
 
-  RGBAImage gr = RGBAImage::fromFile("c:/GRAPHICS/GRASS/GRASS1.PNG");
+  RGBAImage gr = RGBAImage::fromFile("DATA/IMAGES/GRASS1.PNG");
   unsigned int grTex;
   glGenTextures(1,&grTex);
   glBindTexture(GL_TEXTURE_2D,grTex);
@@ -574,7 +1135,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-  RGBAImage bd2 = RGBAImage::fromFile("c:/GRAPHICS/GRASS/GRASS2.PNG");
+  RGBAImage bd2 = RGBAImage::fromFile("DATA/IMAGES/GRASS2.PNG");
   {for (int i = 0; i < bd2.width*bd2.height; i++) bd2.data[i]=(bd2.data[i]&0x00ffffff)|(((rand() % 192)+64) * 0x01000000);}
   unsigned int bd2Tex;
   glGenTextures(1,&bd2Tex);
@@ -585,8 +1146,8 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-  RGBAImage rd = RGBAImage::fromFile("c:/GRAPHICS/TEXTURES/1/GRB4F4~1.PNG");
-  RGBAImage rdn = RGBAImage::fromFile("c:/GRAPHICS/TEXTURES/1/GROUND~1.PNG");
+  RGBAImage rd = RGBAImage::fromFile("DATA/IMAGES/GRB4F4~1.PNG");
+  RGBAImage rdn = RGBAImage::fromFile("DATA/IMAGES/GROUND~1.PNG");
   for (int j2 = 0; j2 < rd.width*rd.height; j2++) {
     unsigned int rgba = rd.data[j2];
     int r = rgba & 255;
@@ -606,8 +1167,8 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-  RGBAImage r2 = RGBAImage::fromFile("c:/GRAPHICS/TEXTURES/1/GROUND~2.PNG");
-  RGBAImage r2n = RGBAImage::fromFile("c:/GRAPHICS/TEXTURES/1/GROUND~3.PNG");
+  RGBAImage r2 = RGBAImage::fromFile("DATA/IMAGES/GROUND~2.PNG");
+  RGBAImage r2n = RGBAImage::fromFile("DATA/IMAGES/GROUND~3.PNG");
   applyNormalMap(&r2,&r2n,1.0,1.0,1.0,3.0,10.0,0.2);
   unsigned int r2Tex;
   glGenTextures(1,&r2Tex);
@@ -619,10 +1180,9 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
   BitmapLayers *psd = new BitmapLayers();
-  psd->loadPSD("c:/GRAPHICS/MAPS/MAP1.PSD");
+  psd->loadPSD("DATA/MAPS/1/MAP.PSD");
   int psdw = psd->layers["elevation"].w;
   int psdh = psd->layers["elevation"].h;
-  //glDone();printf("%d %d\n",psdw,psdh);exit(0);
   unsigned short *hMapdata = new unsigned short[psdw*psdh];
   unsigned short *heightMap = new unsigned short[psdw*psdh];
 
@@ -717,15 +1277,15 @@ int main(int argc, const char **argv) {
   scape->setStones(stones2,psdw,psdh,128,110);
   w = psdw; h = psdh; downsample(&water2,&w,&h,8); scape->setWater(water2,w,h,128,100);
   edit = new LandscapeEdit(scape, raw, &cameraPos, &details);
-  edit->setObjectsFile(OBJECTSPNG,1024,1024);
+  edit->setObjectsFile("DATA/MAPS/1/OBJECTS.PNG",1024,1024);
   edit->refreshObjects();
    
   collision = new LandscapeCollision(-250.0,-250.0,250.0,250.0,psdw,psdh);
   collision->placeMask(water2,w,h,1.0,0.1);
   collision->placeMask(stones2,psdw,psdh,1.0,0.1);
   {
-    for(int i = 0; i < scape->scape.size(); i++) {
-      LandscapeElement *e = &scape->scape[i];
+    for(int i = 0; i < scape->elements.size(); i++) {
+      LandscapeElement *e = &scape->elements[i];
       switch(e->type) {
       case LANDSCAPE_TYPE_TREE: {
         collision->placeCircle(e->x,e->z,e->v2>=128?2:1);
@@ -734,6 +1294,8 @@ int main(int argc, const char **argv) {
         double siz = 1;
         switch(e->v0-1) {
         case 4: {siz = 4;} break;
+        case 6: {siz = 0;} break;
+        case 7: {siz = 0;} break;
         }
         collision->placeCircle(e->x,e->z,siz);
       } break;
@@ -757,10 +1319,38 @@ int main(int argc, const char **argv) {
   glFogf(GL_FOG_DENSITY, fogDensity);
 
 
+  Vector portalColors[4];
+  portalColors[0] = Vector(1,0,0);
+  portalColors[1] = Vector(0,1,1);
+  portalColors[2] = Vector(1,0.5,0);
+  portalColors[3] = Vector(1,0,0.5);
+  int lastVisitedPortalType = -1;
+  double lastVisitedPortalTypeCounter = 0;
+
   raw->update(cameraPos, details);
 
+  wayPoints.clear();
+  for (int i2 = 0; i2 < scape->elements.size(); i2++) {
+    const LandscapeElement *e = &scape->elements[i2];
+    switch(e->type) {
+    case LANDSCAPE_TYPE_OBJECT: {
+      const int meshNr = e->v0-1;
+      switch(meshNr) {
+      case 7: {
+        wayPoints.push_back(WayPoint(e->x,e->y,e->z,e->v1));
+      } break;
+      }
+    } break;
+    }
+  }
+
+  {for (int i = 0; i < BONGLECOUNT; i++) {
+    bongles.push_back(Bongle(getWayPoint(0)));
+  }}
+
+  cameraPos.y = scape->getHeight(cameraPos.x,cameraPos.z);
+
   while(1) {
-    glDebug(0);
     double timeAllStart = glSeconds();
     static double lastSeconds = glSeconds();
     double seconds = glSeconds();
@@ -780,11 +1370,12 @@ int main(int argc, const char **argv) {
 
     const int currentKey = glNextKey();
     if (currentKey == GL_VK_END) break;
-    double mdx, mdy;
-    glNextMouseDelta(&mdx, &mdy);
-    int a = glMouseButtons();
-    mouseX += mdx;
-    mouseY += mdy;
+
+    if (currentKey != 0) logoFadeDest = 0;
+    if (logoFadeDest < logoFade) {
+      logoFade -= td;
+      if (logoFade < logoFadeDest) logoFade = logoFadeDest;
+    }
 
     static Vector lastCameraPos = cameraPos;
     static Vector cameraPosDest = characterPos;
@@ -819,9 +1410,42 @@ int main(int argc, const char **argv) {
       }
     }
 
+    static double cameraAbove = 0;
+    cameraAbove -= 2.0 *td;
+    if (cameraAbove < 0) cameraAbove = 0;
+
+    float heightAdd = 0;
+    for (int i3 = 0; i3 < raw->elements.size(); i3++) {
+      const LandscapeElement *e = raw->elements[i3];
+      switch(e->type) {
+      case LANDSCAPE_TYPE_OBJECT: {
+        const int meshNr = e->v0-1;
+        switch(meshNr) {
+        case 6: {
+          const double dx = e->x - characterPos.x;
+          const double dz = e->z - characterPos.z;
+          const double d = sqrt(dx*dx + dz*dz);
+          if (d < 2.0) {
+            playerType = e->v1 & 3;
+            updateClothings(playerType);
+            lastVisitedPortalType = e->v1 & 3;
+            lastVisitedPortalTypeCounter = 1.0;
+            heightAdd += 0.2;
+            cameraAbove += 4.0 * td;
+            if (cameraAbove > 3) cameraAbove = 3;
+          }
+        } break;
+        }
+      } break;
+      }
+    }
+    lastVisitedPortalTypeCounter -= 0.05 * td;
+    if (lastVisitedPortalTypeCounter<0) lastVisitedPortalTypeCounter = 0;
+
 #ifdef EDITLANDSCAPE
     if (currentKey >= 'a' && currentKey <= 'z') edit->placeObject(&characterPos,currentKey - 'a' + 1);
     if (currentKey >= '1' && currentKey <= '8') edit->rotateObjectY(&characterPos,currentKey - '1');
+    if (currentKey >= 'A' && currentKey <= 'Z') edit->rotateObjectY(&characterPos,currentKey - 'A');
     if (currentKey == ' ') edit->removeObjects(&characterPos);
 #endif
 
@@ -831,13 +1455,14 @@ int main(int argc, const char **argv) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     cameraTarget = characterPos;
-    cameraTarget.y = scape->getHeight(cameraTarget.x,cameraTarget.z) + cameraHeight;
+    cameraTarget.y = scape->getHeight(cameraTarget.x,cameraTarget.z) + cameraHeight + heightAdd;
+
     cameraDestRotY = characterRotationY;
     const float cameraAddRotSpeedY2 = fabs(cameraRotY-cameraDestRotY)*cameraAddRotSpeedY+1.0;
     if (cameraRotY<cameraDestRotY) cameraRotY+= cameraRotYSpeed*td*cameraAddRotSpeedY2;
     if (cameraRotY>cameraDestRotY) cameraRotY-= cameraRotYSpeed*td*cameraAddRotSpeedY2;
     cameraPosDest = cameraTarget - Vector(sin(cameraRotY),0,cos(cameraRotY))*cameraDistance;
-    cameraPosDest.y = scape->getHeight(cameraPos.x,cameraPos.z) + cameraHeight;
+    cameraPosDest.y = scape->getHeight(cameraPos.x,cameraPos.z) + cameraHeight + heightAdd + cameraAbove;
     const Vector distv = cameraPosDest-cameraPos;
     const float distf = length(distv);
     const Vector distn = normalize(distv);
@@ -868,8 +1493,6 @@ int main(int argc, const char **argv) {
       raw->update(cameraPos,details);
     }
 
-    glDebug(1);
-
     double timeTreePaintStart = glSeconds(); 
     for (int p = 0; p < 1; p++) {
       startSpriteObjectPainting(&tree[p], &tre[p]->minBounding, &tre[p]->maxBounding);
@@ -894,8 +1517,6 @@ int main(int argc, const char **argv) {
       finishSpriteObjectPainting();
     }
     double timeTreePaintEnd = glSeconds(); 
-
-    glDebug(2);
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,diffuse);
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,specular);
@@ -963,7 +1584,7 @@ int main(int argc, const char **argv) {
       for (int j = 0; j < 3; j++) {
         Vector &p = raw->vertices[raw->triangles[i].p[j]];
         Vector &n = raw->parameters[raw->triangles[i].p[j]];
-        Vector tn = getTexCoord(p);
+        Vector tn(p.x*0.002 + 0.5, p.z*0.002 + 0.5);
         unsigned char *col = (unsigned char *)&cols[((int)(tn.x*psdw)&(psdw-1))+((int)(tn.y*psdh)&(psdh-1))*psdw];
         float ck = n.x*0.25+0.75;
         glColor4ub(col[0]*ck,col[1]*ck,col[2]*ck,col[3]);
@@ -1109,8 +1730,6 @@ int main(int argc, const char **argv) {
     glEnable(GL_FOG);
     double timeLandscapePaintEnd = glSeconds();
 
-    glDebug(3);
-
     const float characterScale = 1.75f;
 
     double timeSpritePaintStart = glSeconds();
@@ -1156,11 +1775,12 @@ int main(int argc, const char **argv) {
           switch(meshNr) {
           case 0:
           case 1:
-          case 2: {
+          case 2: 
+          {
             paintMesh(objs[meshNr]);
           } break;
           case 3: {
-            paintPortal();
+            paintLevelExitPortal();
           } break;
           case 4: {
             glEnable(GL_LIGHTING);
@@ -1193,21 +1813,42 @@ int main(int argc, const char **argv) {
             glDisable(GL_LIGHTING);
             glDisable(GL_TEXTURE_2D);
           } break;
+          case 6: {
+            const Vector &color = portalColors[e->v1 & 3];
+            paintGirlRecolorPortal(color);
+            glDisable(GL_TEXTURE_2D);
+            glEnable(GL_LIGHTING);
+            glEnable(GL_LIGHT0);
+            glEnable(GL_COLOR_MATERIAL);
+            glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+            float am[4]={0.3,0.3,0.3,0}; glLightModelfv(GL_LIGHT_MODEL_AMBIENT,am);
+            float sp[4]={0,0,0,0};glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,sp);
+            glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
+            paintMesh(objs[meshNr]);
+            glDisable(GL_LIGHTING);
+          } break;
+          case 7: {
+            //paintWayBongle();
+            if (false) {
+              glPopMatrix();
+              glPushMatrix();
+              char b[3] = {0,0,0};
+              b[0] = ((e->v1/10) % 10) + '0';
+              b[1] = (e->v1 % 10) + '0';
+              drawLandscapeText(e->x,e->z,b);
+            }
+          } break;
           }
           glPopMatrix();
         }
-        //drawLandscapeText(e->x,e->z,"Hallo");
       } break;
       }
     }
 
-    glDebug(4);
-
     drawBirds(cameraPos, glSeconds(), bird);
     double timeSpritePaintEnd = glSeconds();
 
-    glDebug(5);
-  
+ 
     double timeApplyAnimationStart = glSeconds();
     animateGLTF_Character(girl,(sfmod(walkAnimSeconds*24.f,61.f)+2.f));
     double timeApplyAnimationEnd = glSeconds();
@@ -1216,17 +1857,22 @@ int main(int argc, const char **argv) {
     glPushMatrix();
     Vector playerPos;
     playerPos = characterPos;
-    playerPos.y = scape->getHeight(playerPos.x,playerPos.z)+1.3+0.25;
+    playerPos.y = scape->getHeight(playerPos.x,playerPos.z)+1.3+0.25 + heightAdd;
     const float SEEMPREVENT = 0.001;
     glTranslatef(playerPos.x+SEEMPREVENT,playerPos.y+SEEMPREVENT,playerPos.z+SEEMPREVENT);
     glRotatef(characterRotationY*360.f/PI/2.f,0,1,0);
     glScalef(characterScale,characterScale,characterScale);
-    renderGLTF_Character(girl);
+    Vector playerColor;
+    //if (lastVisitedPortalType>=0&&lastVisitedPortalType<4 && lastVisitedPortalTypeCounter > 0) playerColor = portalColors[lastVisitedPortalType];
+    //playerColor *= (sin(glSeconds()*3*(3-lastVisitedPortalTypeCounter*2))*0.5+0.5);
+    renderGLTF_Character(girl, playerColor);
     glPopMatrix();
     double timePaintCharacterEnd = glSeconds();
 
-    glDebug(6);
- 
+
+    updateBongles(td);
+    drawBongles();
+
     double timeHimmelStart = glSeconds();
     const bool himmel = true;
     if (himmel) {
@@ -1269,22 +1915,15 @@ int main(int argc, const char **argv) {
     }
     double timeHimmelEnd = glSeconds();
 
-    glDebug(7);
+
+    displayParticles(td);
+    displayHud();
+
+    drawStartScreen();
 
     double timeAllEnd = glSeconds();
 
     glRefresh();
-#ifdef LOGFPS
-    setBiosCursor(0,0);
-    printf("all:%f\n",timeAllEnd-timeAllStart);
-    printf("tree:%f\n",timeTreePaintEnd-timeTreePaintStart);
-    printf("landscape:%f\n",timeLandscapePaintEnd-timeLandscapePaintStart);
-    printf("sprites:%f\n",timeSpritePaintEnd-timeSpritePaintStart);
-    printf("character:%f\n",timePaintCharacterEnd-timePaintCharacterStart);
-    //printf("himmel:%f\n",timeHimmelEnd-timeHimmelStart);
-    //printf("applyAnimation:%f\n",timeApplyAnimationEnd-timeApplyAnimationStart);
-#endif
-
   }
 
   uninstallKeyboardHandler();

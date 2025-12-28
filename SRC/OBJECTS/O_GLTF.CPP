@@ -26,6 +26,10 @@
 #define CGLTF_IMPLEMENTATION
 #include "CGLTFA.HPP"
 #include "IMAGE.HPP"
+#include <math.h>
+#include "SET.HPP"
+
+Set<unsigned int> clothingTextures;
 
 /**
 * This function is used to make the skin of a vroid studio character more natural looking.
@@ -36,34 +40,31 @@
 * @example  GLTFA_File *r = new GLTFA_File(); r->textureCallback = animeCharacterTexture;
 */
 static unsigned int animeCharacterTexture(RGBAImage *img) {
+  bool withClothing = false;
   for (int y = 0; y < img->height; y++) {
     for (int x = 0; x < img->width; x++) {
       unsigned int rgba = img->data[x+y*img->width];
       int r = rgba & 255;
       int g = (rgba>>8) & 255;
       int b = (rgba>>16) & 255;
+      int a = (rgba>>24) & 255;
       int grey = (r + g + b)/3;
       int rs = r-grey;
       int gs = g-grey;
       int bs = b-grey;
-      int isGrey = rs*rs+gs*gs+bs*bs<64*64;
+      bool isGrey = rs*rs+gs*gs+bs*bs<64*64;
       if (isGrey && grey>192) {
-        r = 255;
+        r = 255; // skin tone
         g = 200;
         b = 175;
       } else if (isGrey && grey < 5) {
-        r = 255;
-        g = 20;
-        b = 20;
-        int kx = x*40/img->width;
-        int ky = y*40/img->height;
-        if ((kx+ky)&1) {
-          r = 20;
-          g = 255;
-          b = 255;
-        }
+        a = 128;
+        withClothing = true;
+      } else if (r < 100 && g > 100 && b > 100) {
+        a = 100;
+        withClothing = true;
       }
-      img->data[x+y*img->width] = r | (g<<8) | (b<<16) | (rgba & 0xff000000);
+      img->data[x+y*img->width] = r | (g<<8) | (b<<16) | (a<<24);
     }
   }
   unsigned int r;
@@ -74,6 +75,7 @@ static unsigned int animeCharacterTexture(RGBAImage *img) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  if (withClothing) clothingTextures.insert(r);
   return r;
 }
 
@@ -125,9 +127,10 @@ void animateGLTF_Character(class GLTFA_File *gltf, double frame) {
 * This function renders a gltf which is used as a game character. Including bone setups.
 *
 * @param gltf the gltf file which should be rendered.
+* @param color A color for the current player state.
 * @example renderGLTF_Character(gltf);
-P*/
-void renderGLTF_Character(class GLTFA_File *gltf) {
+*/
+void renderGLTF_Character(class GLTFA_File *gltf, const Vector &color) {
   unsigned int boneId = 0;
   switch(gltf->gltfId) {
   case GLTF_OBJECTID_MAINCHARACTER_NORMAL: {
@@ -137,14 +140,16 @@ void renderGLTF_Character(class GLTFA_File *gltf) {
   }
   const Vector center = gltf->getMatrix(boneId,0).getColumn(3);
 
+  glDisable(GL_ALPHA_TEST);
+  glDisable(GL_BLEND);
   glEnable(GL_COLOR_MATERIAL);
   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
   glEnable(GL_LIGHTING);
   glEnable(GL_LIGHT0);
   glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL,GL_SEPARATE_SPECULAR_COLOR);
-  float specular[4] = {1,1,1,1}; glLightfv(GL_LIGHT0, GL_SPECULAR,specular);
-  float diffuse[4] = {1,1,1,1}; glLightfv(GL_LIGHT0, GL_DIFFUSE,diffuse);
-  float am[4]={0.5,0.5,0.5,0}; glLightModelfv(GL_LIGHT_MODEL_AMBIENT,am);
+  float specular[4] = {1-(float)color.x,1-(float)color.y,1-(float)color.z,1}; glLightfv(GL_LIGHT0, GL_SPECULAR,specular);
+  float diffuse[4] = {1-(float)color.x,1-(float)color.y,1-(float)color.z,1}; glLightfv(GL_LIGHT0, GL_DIFFUSE,diffuse);
+  float am[4]={(float)color.x*0.5f+0.5f,(float)color.y*0.5f+0.5f,(float)color.z*0.5f+0.5f,0}; glLightModelfv(GL_LIGHT_MODEL_AMBIENT,am);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,diffuse);
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,specular);
   glMaterialf(GL_FRONT_AND_BACK,GL_SHININESS,20.0);
@@ -206,4 +211,108 @@ void logGLTFFaceCount(class GLTFA_File *gltf) {
   }
   printf("%d\n",polyCount); 
   exit(0);
+}
+
+/**
+* This function exchanges the clothing of the character if it's not already that type.
+*
+* @param clothingType The type of clothing to apply.
+* @example updateClothings(0);
+*/
+void updateClothings(unsigned int clothingType) {
+  static int lastClothingType = -1;
+  if (lastClothingType == clothingType) return;
+  lastClothingType = clothingType;
+
+  //Vector portalColors[4];
+  //portalColors[0] = Vector(1,0,0);
+  //portalColors[1] = Vector(0,1,1);
+  //portalColors[2] = Vector(1,0.5,0);
+  //portalColors[3] = Vector(1,0,0.5);
+
+  Array<unsigned int> textureIds = clothingTextures.array();
+  for (int i = 0; i < textureIds.size(); i++) {
+    unsigned int textureId = textureIds[i];
+    unsigned int *p = glGetTexturePointer(textureId);
+    int w = glGetTextureWidth(textureId);
+    int h = glGetTextureHeight(textureId);
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        unsigned int rgba = p[x+y*w];
+        int r = rgba & 255;
+        int g = (rgba>>8) & 255;
+        int b = (rgba>>16) & 255;
+        int a = (rgba>>24) & 255;
+        if (a == 128) {
+          bool skinColored = (y >= h * 58 / 100) && (y <= h * 65 / 100);
+          if (skinColored) {
+            r = 255; // skin tone
+            g = 200;
+            b = 175;
+          } else {
+            switch(clothingType & 3) {
+            case 0: {
+              r = 255;
+              g = 20;
+              b = 20;
+              int kx = x*40/w;
+              int ky = y*40/h;
+              if ((kx+ky)&1) {
+                r = 20;
+                g = 255;
+                b = 255;
+              }
+            } break;
+            case 1: {
+              r = 20;
+              g = 255;
+              b = 255;
+            } break;
+            case 2: {
+              r = 255;
+              g = 20;
+              b = 20;
+              int kx = (x+y)*30/w;
+              if (kx&1) {
+                r = 255;
+                g = 128;
+                b = 20;
+              }
+            } break;
+            case 3: {
+              r = 255;
+              g = 20;
+              b = 128;
+            } break;
+            }
+          }
+        }
+        if (a == 100) {
+          switch(clothingType & 3) {
+          case 0: {
+            r = 255;
+            g = 20;
+            b = 20;
+          } break;
+          case 1: {
+            r = 20;
+            g = 255;
+            b = 255;
+          } break;
+          case 2: {
+            r = 255;
+            g = 255;
+            b = 255;
+          } break;
+          case 3: {
+            r = 255;
+            g = 20;
+            b = 128;
+          } break;
+          }
+        }
+        p[x+y*w] = r | (g<<8) | (b<<16) | (a<<24);
+      }
+    }
+  }
 }

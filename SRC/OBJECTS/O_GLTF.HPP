@@ -50,9 +50,10 @@ void animateGLTF_Character(class GLTFA_File *gltf, double frame);
 * This function renders a gltf which is used as a game character. Including bone setups.
 *
 * @param gltf The gltf file which should be rendered.
+* @param color A color for the current player state.
 * @example renderGLTF_Character(gltf);
 */
-void renderGLTF_Character(class GLTFA_File *gltf);
+void renderGLTF_Character(class GLTFA_File *gltf, const class Vector &color);
 
 /**
 * This function logs all nodes and some more data via printf (it closes OpenGL first) and exits the program.
@@ -69,5 +70,14 @@ void logGLTFNodes(class GLTFA_File *gltf);
 * @example logGLTFFaceCount(girl);
 */
 void logGLTFFaceCount(class GLTFA_File *gltf);
+
+
+/**
+* This function exchanges the clothing of the character if it's not already that type.
+*
+* @param clothingType The type of clothing to apply.
+* @example updateClothings(0);
+*/
+void updateClothings(unsigned int clothingType);
 
 #endif //__O_GLTF_HPP__
