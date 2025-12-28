@@ -17,7 +17,7 @@ There are two precompiled .exe files for FreeDOS:
 
 I think it is a good way to use WatcomC++ 11.0 for developing, because of the compilation speed, and DJGPP for the final product / game because of it's good performance.  
 
-How to build it:  
+**How to build it:**  
 
 You need a **RamDisk at R:**, instructions on how to install it are in the AUTOEXEC.BAT in the _BUILD/ folder, the RAMDISK exe is in the _BUILD/ folder, too.  
 
