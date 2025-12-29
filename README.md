@@ -27,7 +27,7 @@ I recommend using WatcomC++ 11.0 for development, as it compiles quickly, and DJ
 
 **Compilation:**
 
-You will need a **RAM disk on R:**. Installation instructions can be found in AUTOEXEC.BAT in the _BUILD/ folder. The RAMDISK file (.exe) is also located in the _BUILD/ folder.
+You will need a **RAM disk on R:**. Installation instructions can be found in AUTOEXEC.BAT in the _BUILD/ folder. The RAMDISK file (.exe) is also located in the _BUILD/ folder. I choose a Ramdisk because USB Sticks wear out if used for a longer time (write cycles).
 
 **Run !CLEAN.BAT** to clean the R:/ directory.
 
