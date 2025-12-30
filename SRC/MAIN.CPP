@@ -1462,9 +1462,9 @@ int main(int argc, const char **argv) {
     const float cameraQuantRotY = 1;
     const float cameraHeight = 2.f;
     const float cameraDistance = 4.f;
-    Vector characterDest(0,0,0,0);
-    if (keyPressed[SCANCODE_UP]) characterDest += characterPos + Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
-    if (keyPressed[SCANCODE_DOWN]) characterDest += characterPos - Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
+    Vector characterDest = characterPos;
+    if (keyPressed[SCANCODE_UP]) characterDest += Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
+    if (keyPressed[SCANCODE_DOWN]) characterDest -= Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
     if (keyPressed[SCANCODE_LEFT]) characterRotationY += td*characterRotYSpeed;
     if (keyPressed[SCANCODE_RIGHT]) characterRotationY -= td*characterRotYSpeed;
     if (length(characterDest) != 0) characterPos = tryWalk(characterPos, characterDest);
