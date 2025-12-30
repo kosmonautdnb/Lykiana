@@ -877,7 +877,9 @@ bool updateBongles(const double dt) {
 * The main function.
 */
 int main(int argc, const char **argv) {
-
+/*
+  This is just a fast coded example game for WatcomGL. I didn't dare to cleanup this main() function. Maybe that's something todo: later..  
+*/
   printf("----------------------------\n");
   printf("Noras workday!\n");
   printf("----------------------------\n");
@@ -914,6 +916,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  logo.free();
 
   updateClothings(0);
 
@@ -959,7 +962,7 @@ int main(int argc, const char **argv) {
 #define GRASSW 128
 #define GRASSH 16
   srand(0);
-  unsigned int grass_[GRASSW*GRASSH];
+  unsigned int *grass_ = new unsigned int[GRASSW*GRASSH];
   {for (int x = 0; x < GRASSW; x++) {
     int h = (rand() % GRASSH)+1;
     int k2 = (rand() % 32);
@@ -981,6 +984,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  delete[] grass_;
 
   Vector clearColor;
 
@@ -1011,6 +1015,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  pn.free();
 
   RGBAImage pn2 = RGBAImage::fromFile("DATA/IMAGES/PANORA~4.PNG");
   {
@@ -1070,6 +1075,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  pn2.free();
 
 
   RGBAImage pn3;
@@ -1096,10 +1102,11 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  pn3.free();
 
 #define FLWIDTH 16
 #define FLHEIGHT 16
-  unsigned int fl[FLWIDTH*FLHEIGHT];
+  unsigned int *fl = new unsigned int[FLWIDTH*FLHEIGHT];
   {
     for (int y = 0; y < FLHEIGHT; y++) {
       for (int x = 0; x < FLWIDTH; x++) {
@@ -1127,6 +1134,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  delete[] fl;
 
 #define SUNWIDTH 256
 #define SUNHEIGHT 256
@@ -1169,6 +1177,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  gr.free();
 
   RGBAImage bd2 = RGBAImage::fromFile("DATA/IMAGES/GRASS2.PNG");
   {for (int i = 0; i < bd2.width*bd2.height; i++) bd2.data[i]=(bd2.data[i]&0x00ffffff)|(((rand() % 192)+64) * 0x01000000);}
@@ -1180,6 +1189,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  bd2.free();
 
   RGBAImage rd = RGBAImage::fromFile("DATA/IMAGES/GRB4F4~1.PNG");
   RGBAImage rdn = RGBAImage::fromFile("DATA/IMAGES/GROUND~1.PNG");
@@ -1193,6 +1203,7 @@ int main(int argc, const char **argv) {
     if (abs(r-grey)>t||abs(g-grey)>t||abs(b-grey)>t) rdn.data[j2] = 0xff808080;
   }
   applyNormalMap(&rd,&rdn,1.0,1.0,1.0,3.0,10.0,0.2);
+  rdn.free();
   unsigned int rdTex;
   glGenTextures(1,&rdTex);
   glBindTexture(GL_TEXTURE_2D,rdTex);
@@ -1201,10 +1212,12 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  rd.free();
 
   RGBAImage r2 = RGBAImage::fromFile("DATA/IMAGES/GROUND~2.PNG");
   RGBAImage r2n = RGBAImage::fromFile("DATA/IMAGES/GROUND~3.PNG");
   applyNormalMap(&r2,&r2n,1.0,1.0,1.0,3.0,10.0,0.2);
+  r2n.free();
   unsigned int r2Tex;
   glGenTextures(1,&r2Tex);
   glBindTexture(GL_TEXTURE_2D,r2Tex);
@@ -1213,6 +1226,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  r2.free();
 
   RGBAImage success = RGBAImage::fromFile("DATA/IMAGES/SUCCESS.PNG");
   unsigned int successTex;
@@ -1223,6 +1237,7 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  success.free();
 
 
   BitmapLayers *psd = new BitmapLayers();
@@ -1318,8 +1333,14 @@ int main(int argc, const char **argv) {
   //downsample(&roads2,&w,&h,3);
   scape->setRoads(roads2,w, h,128,128+16,64);
   scape->setTrees(roads2,trees2,psdw,psdh,128);
+  delete[] roads2;
+  delete[] trees2;
   scape->setGrass(roads4,grass2,psdw,psdh,32);
+  delete[] roads4;
+  delete[] grass2;
   scape->setFlowers(roads3,flowers2,psdw,psdh,5);
+  delete[] roads3;
+  delete[] flowers2;
   scape->setStones(stones2,psdw,psdh,128,110);
   w = psdw; h = psdh; downsample(&water2,&w,&h,8); scape->setWater(water2,w,h,128,100);
   edit = new LandscapeEdit(scape, raw, &cameraPos, &details);
@@ -1328,7 +1349,9 @@ int main(int argc, const char **argv) {
    
   collision = new LandscapeCollision(-250.0,-250.0,250.0,250.0,psdw,psdh);
   collision->placeMask(water2,w,h,1.0,0.1);
+  delete[] water2;
   collision->placeMask(stones2,psdw,psdh,1.0,0.1);
+  delete[] stones2;
   {
     for(int i = 0; i < scape->elements.size(); i++) {
       LandscapeElement *e = &scape->elements[i];
@@ -1358,6 +1381,8 @@ int main(int argc, const char **argv) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR2);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  delete psd;
 
   glEnable(GL_FOG);
   glFogi(GL_FOG_MODE, GL_EXP2);
