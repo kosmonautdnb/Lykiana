@@ -21,7 +21,7 @@ And some **useful libraries** for DJGPP/(actually all are done for)WatcomC 11.0/
 https://github.com/kosmonautdnb/WatcomLibs  
 
 **DosBOX and DosBOX-X**:  
-It is not yet memory-optimized and uses very large data files. Therefore, it doesn't run in DOSBox, which, according to the internet, only supports 64 MB of RAM. DOSBox-X with **memsize=256** does execute **NORA1_DJ.EXE**, but it is far too slow. The OpenWatcom version, **NORA1_OW.EXE**, **fails** due to the limited 64 MB. On a real FreeDOS machine, WatcomC (PMode/W) can access approximately **256 MB** of RAM instead of just 64 MB. DOSBox and DOSBox-X are far too slow for this; it is recommended to use VirtualBox or a real FreeDOS machine. Furthermore, DOSBox does not provide a virtual **16:9** display by default.
+It is not yet memory-optimized and uses very large data files. Therefore, it doesn't run in DOSBox, which, according to the internet, only supports 64 MB of RAM. DOSBox-X with **memsize=256** does execute **NORA1_DJ.EXE**, but it is **far too slow**. The OpenWatcom version, **NORA1_OW.EXE**, **fails** due to the limited 64 MB. On a real FreeDOS machine, WatcomC (PMode/W) can access approximately **256 MB** of RAM instead of just 64 MB. DOSBox and DOSBox-X are far too slow for this; it is recommended to use VirtualBox or a real FreeDOS machine. Furthermore, DOSBox does not provide a virtual **16:9** display by default.
 
 There are two pre-compiled .exe files for FreeDOS:
 
