@@ -40,6 +40,8 @@ You will need a **RAM disk on R:**. Installation instructions can be found in AU
 
 The game will access the **DATA/** folder, which contains all the game data.
 
+You could **Run !BATCH.BAT** to build all the files (some settings are in there) and start the game if you are in a non FreeDOS environment.  
+
 **WatcomC with 256 MB of memory (with PMODE/W) instead of the 32 MB (with Dos4gw)**  
 PMODE/W config.sys:  
 DEVICE=C:_DOS_\BIN\HIMEMX.exe  
