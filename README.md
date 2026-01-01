@@ -45,6 +45,6 @@ It's not yet memory-optimized and uses very large data files. Therefore, it does
 
 **WatcomC with 256 MB of memory (with PMODE/W) instead of the 32 MB (with Dos4gw)**  
 PMODE/W config.sys:  
-DEVICE=C:_DOS_\BIN\HIMEMX.exe  
-DEVICE=C:_DOS_\BIN\JEMM386.exe /SB /MAX=262144  
+DEVICE=C:\_DOS_\BIN\HIMEMX.exe  
+DEVICE=C:\_DOS_\BIN\JEMM386.exe /SB /MAX=262144  
 /MAX=262144 means 256MB may be available.  
