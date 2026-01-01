@@ -12,7 +12,7 @@ By changing the colors of the balls, you earn money. At the end of the workday, 
 
 You can end the game prematurely by pressing the **END** ​​or **ESC** key. Once the certificate appears, you can permanently exit the game by pressing the **SPACEBAR** key. This game is just a small hack and contains very little code.
 
-## Techniques
+## WatcomGL
 
 It has a fixed **16:9** aspect ratio (e.g., 1280x720). Therefore, it will appear **distorted on 4:3** monitors (e.g., 640x480).
 
@@ -49,9 +49,9 @@ The game will access the **DATA/** folder, which contains all the game data.
 
 You could **Run !BATCH.BAT** to build all the files (some settings are in there) of the game if you are in a non FreeDOS environment.  
 
-## WatcomC with 256 MB of memory on FreeDOS (with PMODE/W) instead of the 32 MB (with Dos4gw)  
+## config.sys additions for WatcomC's PMODE/W:  
 
-config.sys additions for WatcomC's PMODE/W:  
+**WatcomC with 256 MB of memory on FreeDOS (with PMODE/W) instead of the 32 MB (with Dos4gw)**
 
 DEVICE=C:\_DOS_\BIN\HIMEMX.exe  
 DEVICE=C:\_DOS_\BIN\JEMM386.exe /SB /MAX=262144  
