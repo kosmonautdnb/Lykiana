@@ -12,7 +12,7 @@ By changing the colors of the balls, you earn money. At the end of the workday, 
 
 You can end the game prematurely by pressing the **END** ​​or **ESC** key. Once the certificate appears, you can permanently exit the game by pressing the **SPACEBAR** key. This game is just a small hack and contains very little code.
 
-It has a fixed **16:9** aspect ratio (e.g., 1280x720). Therefore, it will appear distorted on 4:3 monitors (e.g., 640x480).
+It has a fixed **16:9** aspect ratio (e.g., 1280x720). Therefore, it will appear **distorted on 4:3** monitors (e.g., 640x480).
 
 You can find **WatcomGL** (an OpenGL for DJGPP/WatcomC/OpenWatcom) here:  
 https://github.com/kosmonautdnb/WatcomGL  
