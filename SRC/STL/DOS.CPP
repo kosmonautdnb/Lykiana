@@ -11,8 +11,10 @@
 #ifdef __DJGPP__
 // todo: not implemented, yet
 #define NOT_DOS
+#include <sys/exceptn.h>
 #include <dos.h>
 #include <unistd.h>
+#include <signal.h>
 #endif // __DJGPP__
 #ifdef ON_WINDOWS
 #include <vector>
@@ -40,14 +42,25 @@ String getCWD() {
 #endif
 }
 
+
+#ifdef __DJGPP__
+static void exitProgram(int signal) {
+  printf("CTRL+BREAK pressed. I don't know how to disable this key !properly! in DJGPP.\n"); exit(0);
+}
+#endif // __DJGPP__
+
 void disableControlBreak() {
-#ifndef NOT_DOS
+#ifdef __WATCOMC__
   union REGS regs;
   regs.h.ah = 0x33;
   regs.h.al = 1;
   regs.h.dl = 0;
   int386(0x21, &regs, &regs);
-#endif
+#endif // __WATCOMC__
+#ifdef __DJGPP__
+  setmode(fileno(stdin),O_BINARY); // CTRL-C is normal again
+  signal(SIGINT,exitProgram); // CTRL-BREAK exits, due to invalid keyboard after CTRL-BREAK
+#endif // __DJGPP__
 }
 
 #ifdef __WATCOMC__

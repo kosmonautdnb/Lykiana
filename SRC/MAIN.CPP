@@ -41,6 +41,7 @@
 #include "TERRAIN/T_EDIT.HPP"
 #include "OBJECTS/O_GLTF.HPP"
 #include "OBJECTS/O_WAVOBJ.HPP"
+#include "GLRECORD.HPP"
 #ifdef __WATCOMC__
 #include <i86.h>
 #endif // __WATCOMC__
@@ -52,6 +53,8 @@
 /// PI
 #define PI 3.14159265358979323846
 #endif // PI
+
+double glSeconds2 = 0;
 
 /**
 * A fmod which handles negative values a bit "better"
@@ -247,7 +250,7 @@ LandscapeEdit *edit;
 * @example paintLevelExitPortal();
 */
 void paintLevelExitPortal() {
-  const double s = glSeconds();
+  const double s = glSeconds2;
   glDisable(GL_CULL_FACE);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -284,7 +287,7 @@ void paintLevelExitPortal() {
 * @example paintGirlRecolorPortal(Vector(1,0,0,0));
 */
 void paintGirlRecolorPortal(const Vector &color) {
-  const double s = glSeconds();
+  const double s = glSeconds2;
   glDisable(GL_CULL_FACE);
   glDisable(GL_BLEND);
   glBlendFunc(GL_ONE, GL_ONE);
@@ -1495,10 +1498,13 @@ int main(int argc, const char **argv) {
 #endif
   glRefresh();
 
+  useGLRecordWithDescFile("record.dsc");
+
   while(1) {
-    double timeAllStart = glSeconds();
-    static double lastSeconds = glSeconds();
-    double seconds = glSeconds();
+    glSeconds2 = glSeconds();
+    double timeAllStart = glSeconds2;
+    static double lastSeconds = glSeconds2;
+    double seconds = glSeconds2;
     double td = seconds - lastSeconds;
     lastSeconds = seconds;
 
@@ -1514,6 +1520,7 @@ int main(int argc, const char **argv) {
     }
 
     const int currentKey = glNextKey();
+    while(glNextKeyx() != 0) {;}
     if (currentKey == GL_VK_END || currentKey == GL_VK_ESCAPE) break;
 
     if (currentKey != 0) logoFadeDest = 0;
@@ -1537,6 +1544,7 @@ int main(int argc, const char **argv) {
     const float cameraHeight = 2.f;
     const float cameraDistance = 4.f;
     Vector characterDest = characterPos;
+    glKeyMatrix((bool*)keyPressed,0x80);
     if (keyPressed[SCANCODE_UP]) characterDest += Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
     if (keyPressed[SCANCODE_DOWN]) characterDest -= Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
     if (keyPressed[SCANCODE_LEFT]) characterRotationY += td*characterRotYSpeed;
@@ -1638,7 +1646,7 @@ int main(int argc, const char **argv) {
       raw->update(cameraPos,details);
     }
 
-    double timeTreePaintStart = glSeconds(); 
+    double timeTreePaintStart = glSeconds2; 
     for (int p = 0; p < 1; p++) {
       startSpriteObjectPainting(&tree[p], &tre[p]->minBounding, &tre[p]->maxBounding);
       glDisable(GL_TEXTURE_2D);
@@ -1661,7 +1669,7 @@ int main(int argc, const char **argv) {
       glEnable(GL_TEXTURE_2D);
       finishSpriteObjectPainting();
     }
-    double timeTreePaintEnd = glSeconds(); 
+    double timeTreePaintEnd = glSeconds2; 
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,diffuse);
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,specular);
@@ -1679,13 +1687,13 @@ int main(int argc, const char **argv) {
     glBegin(GL_TRIANGLES);
     glColor4f(1,1,1,1);
 
-    int k = (int)(glSeconds()*10.0);
+    int k = (int)(glSeconds2*10.0);
     srand(k & 32767);
     float xa = (float)(rand() & 255)/255.f;
     float za = (float)(rand() & 255)/255.f;
 
     srand(0);
-    double timeLandscapePaintStart = glSeconds();
+    double timeLandscapePaintStart = glSeconds2;
     for (int i = 0; i < raw->triangles.size(); i++) {
 
       //glColor3f((rand() & 255)/255.f,(rand() & 255)/255.f,(rand() & 255)/255.f);
@@ -1808,7 +1816,7 @@ int main(int argc, const char **argv) {
       if (water) {
         float flowSpeed = 0.5;
         float waveScale = 0.05*0.5;
-        float wavePos = glSeconds() * waveScale * flowSpeed;
+        float wavePos = glSeconds2 * waveScale * flowSpeed;
         glBindTexture(GL_TEXTURE_2D,pn3Tex);        
         glEnable(GL_BLEND);
         glBlendFunc(GL_DST_COLOR, GL_SRC_COLOR);
@@ -1832,7 +1840,7 @@ int main(int argc, const char **argv) {
           }
         }
         waveScale *= 0.125;
-        wavePos = glSeconds() * waveScale * 1.5 * flowSpeed;
+        wavePos = glSeconds2 * waveScale * 1.5 * flowSpeed;
         {
           glColor3f(1,1,1);
           for (int j = 0; j < 3; j++) {
@@ -1873,11 +1881,11 @@ int main(int argc, const char **argv) {
     }
     glEnd();
     glEnable(GL_FOG);
-    double timeLandscapePaintEnd = glSeconds();
+    double timeLandscapePaintEnd = glSeconds2;
 
     const float characterScale = 1.75f;
 
-    double timeSpritePaintStart = glSeconds();
+    double timeSpritePaintStart = glSeconds2;
     for (int i2 = 0; i2 < raw->elements.size(); i2++) {
       const LandscapeElement *e = raw->elements[i2];
       switch(e->type) {
@@ -1990,15 +1998,15 @@ int main(int argc, const char **argv) {
       }
     }
 
-    drawBirds(cameraPos, glSeconds(), bird);
-    double timeSpritePaintEnd = glSeconds();
+    drawBirds(cameraPos, glSeconds2, bird);
+    double timeSpritePaintEnd = glSeconds2;
 
  
-    double timeApplyAnimationStart = glSeconds();
+    double timeApplyAnimationStart = glSeconds2;
     animateGLTF_Character(girl,(sfmod(walkAnimSeconds*24.f,61.f)+2.f));
-    double timeApplyAnimationEnd = glSeconds();
+    double timeApplyAnimationEnd = glSeconds2;
 
-    double timePaintCharacterStart = glSeconds();
+    double timePaintCharacterStart = glSeconds2;
     glPushMatrix();
     Vector playerPos;
     playerPos = characterPos;
@@ -2012,13 +2020,13 @@ int main(int argc, const char **argv) {
     //playerColor *= (sin(glSeconds()*3*(3-lastVisitedPortalTypeCounter*2))*0.5+0.5);
     renderGLTF_Character(girl, playerColor);
     glPopMatrix();
-    double timePaintCharacterEnd = glSeconds();
+    double timePaintCharacterEnd = glSeconds2;
 
 
     bool allDone = updateBongles(td);
     drawBongles();
 
-    double timeHimmelStart = glSeconds();
+    double timeHimmelStart = glSeconds2;
     const bool himmel = true;
     if (himmel) {
       glDisable(GL_FOG);
@@ -2058,7 +2066,7 @@ int main(int argc, const char **argv) {
       Vector v = Vector(250+cameraPos.x,150+cameraPos.y,250+cameraPos.z);
       blitSun(&v);
     }
-    double timeHimmelEnd = glSeconds();
+    double timeHimmelEnd = glSeconds2;
 
 
     displayParticles(td);
@@ -2066,7 +2074,7 @@ int main(int argc, const char **argv) {
 
     drawStartScreen();
 
-    double timeAllEnd = glSeconds();
+    double timeAllEnd = glSeconds2;
 
     glRefresh();
     if (allDone) break;
