@@ -1,6 +1,6 @@
 0
 r:/snapshot.rec
-r:/h264.264
+c:/h264.264
 c:/video.mp4
 #---------------------------------
 # first line of this file is the mode:

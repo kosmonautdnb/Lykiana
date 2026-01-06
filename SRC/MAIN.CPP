@@ -1498,6 +1498,7 @@ int main(int argc, const char **argv) {
 #endif
   glRefresh();
 
+  overideGLRecordVideoResolution(1280, 720);
   useGLRecordWithDescFile("record.dsc");
 
   while(1) {
