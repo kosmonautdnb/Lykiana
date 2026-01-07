@@ -1545,18 +1545,20 @@ int main(int argc, const char **argv) {
     const float cameraHeight = 2.f;
     const float cameraDistance = 4.f;
     Vector characterDest = characterPos;
-    glKeyMatrix((bool*)keyPressed,0x80);
-    if (keyPressed[SCANCODE_UP]) characterDest += Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
-    if (keyPressed[SCANCODE_DOWN]) characterDest -= Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
-    if (keyPressed[SCANCODE_LEFT]) characterRotationY += td*characterRotYSpeed;
-    if (keyPressed[SCANCODE_RIGHT]) characterRotationY -= td*characterRotYSpeed;
+    static bool keyPressed2[0x80];
+    memcpy(keyPressed2,(void*)keyPressed,0x80);
+    glKeyMatrix(keyPressed2,0x80);
+    if (keyPressed2[SCANCODE_UP]) characterDest += Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
+    if (keyPressed2[SCANCODE_DOWN]) characterDest -= Vector(sin(characterRotationY),0,cos(characterRotationY))*td*10.0;
+    if (keyPressed2[SCANCODE_LEFT]) characterRotationY += td*characterRotYSpeed;
+    if (keyPressed2[SCANCODE_RIGHT]) characterRotationY -= td*characterRotYSpeed;
     if (length(characterDest) != 0) characterPos = tryWalk(characterPos, characterDest);
 
     static float walkAnimSeconds = 0;
     const float walkAnimSpeed = 1.25f;
-    if (keyPressed[SCANCODE_UP]) { walkAnimSeconds += td*walkAnimSpeed; 
+    if (keyPressed2[SCANCODE_UP]) { walkAnimSeconds += td*walkAnimSpeed; 
     } else {
-      if (keyPressed[SCANCODE_DOWN]) {
+      if (keyPressed2[SCANCODE_DOWN]) {
         walkAnimSeconds -= td*walkAnimSpeed; 
       }
       else {

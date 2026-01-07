@@ -6,6 +6,7 @@
 // main function, you only need to place just this before your gl functions (but after glVesa/glVGA/glDirect) and check the generated file for instructions on how to use this.
 // best directly before the mainloop since there is a glSetTime(0) involved.
 // maybe use overideGLRecordVideoResolution before to set video width and height
+// for youtube you need at least 1280x720, it will be very bad looking in youtube anotherway.
 void useGLRecordWithDescFile(const char *fileName);
 
 // use this to serialize the keyboard state if you are using the keyboard matrix
@@ -25,7 +26,7 @@ typedef enum GLRECORDMODE {
   GLRECORD_RENDERH264 = 3
 } GLRECORDMODE;
 
-void overideGLRecordVideoResolution(int width, int height);
+void overideGLRecordVideoResolution(int width, int height); // before useGLRecordWithDescFile()
 void setGLRecordRenderFrameRate(double frameRate);
 void setGLRecordFileName(const char *fileName);
 void setGLRecordH264FileName(const char *fileName);
