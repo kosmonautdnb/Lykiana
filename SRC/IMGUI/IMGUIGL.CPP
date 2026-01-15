@@ -15,7 +15,7 @@
 
 #define FASTIMGUIGL // define that for non polygonal drawing (rectangles) (ImGui just supports GL_NEAREST sampling for (QUAD)textures if enabled)
 #define DISABLECTRLCBREAK // program doesn't close on ctrl c
-#define SHIFTCURSORFORMOUSEWHEEL // enables SHIFT+UP/SHIFT+DOWN as mouse scrollwheel "keys"
+//#define SHIFTCURSORFORMOUSEWHEEL // enables SHIFT+UP/SHIFT+DOWN as mouse scrollwheel "keys"
 
 extern int glFrameBufferWidth;
 extern int glFrameBufferHeight;
@@ -540,15 +540,14 @@ void InitImGui(int w, int h)
   io.KeyMap[ImGuiKey_Backspace] = translate(GL_VK_BACKSPACE);
   io.KeyMap[ImGuiKey_Enter] = translate(GL_VK_ENTER);
   io.KeyMap[ImGuiKey_Escape] = translate(GL_VK_ESCAPE);
+  io.KeyMap[ImGuiKey_PageUp] = translate(GL_VK_PAGEUP);
+  io.KeyMap[ImGuiKey_PageDown] = translate(GL_VK_PAGEDOWN);
   io.KeyMap[ImGuiKey_A] = translate(GL_VK_A_CTRL);
   io.KeyMap[ImGuiKey_Z] = translate(GL_VK_Z_CTRL);
   io.KeyMap[ImGuiKey_Y] = translate(GL_VK_Y_CTRL);
   io.KeyMap[ImGuiKey_C] = translate(GL_VK_C_CTRL);
   io.KeyMap[ImGuiKey_V] = translate(GL_VK_V_CTRL);
   io.KeyMap[ImGuiKey_X] = translate(GL_VK_X_CTRL);
-  //io.KeyMap[ImGuiKey_A] = GL_VK_A_CTRL;
-  //io.KeyMap[ImGuiKey_Y] = GL_VK_Y_CTRL;
-  //io.KeyMap[ImGuiKey_Z] = GL_VK_Z_CTRL;
   
   io.RenderDrawListsFn = ImImpl_RenderDrawLists;
   io.SetClipboardTextFn = ImImpl_SetClipboardTextFn;
@@ -569,6 +568,11 @@ void InitImGui(int w, int h)
   s.Colors[ImGuiCol_CloseButton] = ImVec4(0xff/255.f*0.15f,0,0x40/255.f*0.0f,1.f);
   s.Colors[ImGuiCol_Button] = ImVec4(0xff/255.f*0.45f,0,0x40/255.f*0.2f,1.f);
   s.Colors[ImGuiCol_Text] = ImVec4(1,1,1,1);
+  s.Colors[ImGuiCol_FrameBg] = ImVec4(0.3,0.3,0.3,1);
+  // these where added for EGA
+  s.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.8,0.8,0.8,1);
+  s.Colors[ImGuiCol_CheckMark] = ImVec4(0.0,1.0,1.0,1);
+  s.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.5,0.5,1.0,1);
 }
 
 static void ImGuiKeyBoardInput() {
@@ -584,13 +588,16 @@ static void ImGuiKeyBoardInput() {
 
   for (int i = 0; i < 512; i++)
     ImGui::GetIO().KeysDown[i]=false;
-  int c = translate(currentKey);
 
-  if (c<256) {
-    ImGui::GetIO().AddInputCharacter(c);
-    ImGui::GetIO().KeysDown[c]=true;
-  } else  
-    ImGui::GetIO().KeysDown[c]=true;
+  if (currentKey != 0) {
+    int c = translate(currentKey);
+  
+    if (c<256) {
+      ImGui::GetIO().AddInputCharacter(c);
+      ImGui::GetIO().KeysDown[c]=true;
+    } else  
+      ImGui::GetIO().KeysDown[c]=true;
+  }
 
   ImGui::GetIO().KeyShift = currentKeyShift;
   ImGui::GetIO().KeyCtrl = currentKeyCtrl;

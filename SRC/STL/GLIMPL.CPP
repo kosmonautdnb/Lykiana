@@ -161,7 +161,7 @@ GLuint glReadTscHi(); // a tiny tiny tiny bit "unsafe"
 GLuint glHasTsc_();
 #pragma aux glReadTscHi="rdtsc""shr edx,16" value[edx] modify[eax edx]
 #pragma aux glReadTsc="rdtsc""shr eax,16""shl edx,16""or eax,edx" value[eax] modify[eax edx]
-#pragma aux glHasTsc_="push ebx""mov eax,0x80000000""cpuid""cmp eax,0x80000001""jb maybe_no_tsc""mov eax,0x80000001""cpuid""test edx,0x00000010""jnz tsc_available""maybe_no_tsc:""mov eax,0x80000000""cpuid""cmp eax,0x80000007""jb no_tsc""mov eax,0x80000007""cpuid""test edx,0x00000100""jnz tsc_available""no_tsc:""xor eax,eax""jmp end_check""tsc_available:""mov eax,1""end_check:""pop ebx"value[eax] modify[eax edx ecx]
+#pragma aux glHasTsc_="push ebx""mov eax,0x80000000""cpuid""cmp eax,0x80000001""jb maybe_no_tsc""mov eax,0x80000001""cpuid""test edx,0x00000010""jnz tsc_available""maybe_no_tsc:""mov eax,0x80000000""cpuid""cmp eax,0x80000007""jb no_tsc""mov eax,0x80000007""cpuid""test edx,0x00000100""jnz tsc_available""no_tsc:""xor eax,eax""jmp end_check""tsc_available:""mov eax,1""end_check:""pop ebx"value[eax] modify[eax edx ecx ebx]
 GLdouble glReadTscDouble() {return (GLdouble)(glReadTsc())/glTscFrequency+(GLdouble)(glReadTscHi())*65536.0/glTscFrequency*65536.0;} // maybe unsafe? (WatcomC has broken 64bit int support)
 
 GLvoid glInitTSC() {
@@ -6173,9 +6173,8 @@ GLboolean glVesa(GLint xRes,GLint yRes, GLint bPP) {
       glCleanSetup(xRes, yRes, frameBuffer, depthBuffer, stencilBuffer);
       glSetupMouse();
 
-      glFrameBufferDedicated = (GLuint*)glMapPhysicalToLinear(modeInfo.linearFrameBuffer,4096*1024-1);
-      memset(glFrameBufferDedicated,0,xRes*yRes*sizeof(GLuint));
-
+      glFrameBufferDedicated = (GLuint*)glMapPhysicalToLinear(modeInfo.linearFrameBuffer,xRes*yRes*(bPP/8));
+      // call glRefresh directly after that
       return GL_TRUE;
     }
     v++;
@@ -6296,15 +6295,14 @@ GLboolean glVesa(GLint xRes,GLint yRes, GLint bPP) {
       glSetupMouse();
 
       // linear framebuffer mapping to vesasel not glFrameBufferDedicated
-      glLinearFrameBufferStruct.size = 4096*1024-1;
+      glLinearFrameBufferStruct.size = xRes*yRes*(bPP/8);
       glLinearFrameBufferStruct.address = modeInfo.linearFrameBuffer;
       __dpmi_physical_address_mapping(&glLinearFrameBufferStruct);
       glVesasel = __dpmi_allocate_ldt_descriptors(1);
       __dpmi_set_segment_base_address(glVesasel,glLinearFrameBufferStruct.address);
       __dpmi_set_segment_limit(glVesasel,glLinearFrameBufferStruct.size-1);
-      for (GLint i = 0; i < xRes*yRes; i++) _farpokel(glVesasel,i<<2,0);
       glFrameBufferDedicated = (GLuint*)0x10101010; // not NULL so glDone calls unmap
-
+      // call glRefresh() directly after that.
       return GL_TRUE;
     }
     v++;
@@ -6589,21 +6587,41 @@ GLvoid glDone() {
 
 }
 
+#ifdef __WATCOMC__
+GLuint int16_1(); // we need the zero flag it's not well exposed by the watcom api sorry that's why some asm here
+#pragma aux int16_1="mov ah,0x01""int 0x16""jz do""mov eax,0""jmp dont""do:""mov eax,1""dont:" value[eax] modify[eax ebx ecx edx]
+#endif
+#ifdef __DJGPP__
+GLuint int16_1() {
+  GLuint ret;
+  __asm__ __volatile__("\tmovb $1,%%ah\n""\tint $0x16\n""\tjz 1f\n""\tmovl $0,%%eax\n""\tjmp 2f\n""1:\n""\tmovl $1,%%eax\n""2:\n" : "=a" (ret));
+  return ret;
+}
+#endif
+
 GLushort glNextKey() {
   if (glNextKeyCallback != NULL) return glNextKeyCallback();
+//  union REGS regs;
+//  memset(&regs,0,sizeof(regs));
+//  regs.w.ax = 0x0600;
+//  regs.w.dx = 0xff;
+//  int386(0x21, &regs, &regs);
+//  glKey = regs.w.ax & 0xff;
+//  if (glKey == 0) {
+//    memset(&regs,0,sizeof(regs));
+//    regs.w.ax = 0x0600;
+//    regs.w.dx = 0xff;
+//    int386(0x21, &regs, &regs);
+//    glKey += (regs.w.ax & 0xff)<<8;
+//  }
+  if (int16_1()) return 0;
   union REGS regs;
   memset(&regs,0,sizeof(regs));
-  regs.w.ax = 0x0600;
-  regs.w.dx = 0xff;
-  int386(0x21, &regs, &regs);
-  glKey = regs.w.ax & 0xff;
-  if (glKey == 0) {
-    memset(&regs,0,sizeof(regs));
-    regs.w.ax = 0x0600;
-    regs.w.dx = 0xff;
-    int386(0x21, &regs, &regs);
-    glKey += (regs.w.ax & 0xff)<<8;
-  }
+  regs.w.ax = 0x0000;
+  int386(0x16, &regs, &regs);
+  glKey = regs.w.ax;
+  if ((glKey & 0xff) != 0x00) glKey &= 0xff;
+
   return (GLushort)glKey;
 }
 
@@ -6666,13 +6684,18 @@ GLvoid glSetupMouse() {
 
 GLvoid glSpecialKeys(GLboolean *shiftKey, GLboolean *ctrlKey, GLboolean *altKey) {
   if (glSpecialKeysCallback != NULL) {glSpecialKeysCallback(shiftKey, ctrlKey, altKey); return;}
-#ifdef __WATCOMC__
-  uint8_t keyState = *((uint8_t *)0x417);
-#endif // __WATCOMC__
-#ifdef __DJGPP__
-  uint8_t keyState;
-  dosmemget(0x417,1,&keyState);
-#endif // __DJGPP__
+//#ifdef __WATCOMC__
+//  uint8_t keyState = *((uint8_t *)0x417);
+//#endif // __WATCOMC__
+//#ifdef __DJGPP__
+//  uint8_t keyState;
+//  dosmemget(0x417,1,&keyState);
+//#endif // __DJGPP__
+  union REGS regs;
+  memset(&regs,0,sizeof(regs));
+  regs.w.ax = 0x0200;
+  int386(0x16, &regs, &regs);
+  uint8_t keyState = (uint8_t)(regs.w.ax & 0xff);
   *shiftKey = ((keyState & 0x03) != 0) ? GL_TRUE : GL_FALSE;
   *ctrlKey = ((keyState & 0x04) != 0) ? GL_TRUE : GL_FALSE;
   *altKey = ((keyState & 0x08) != 0) ? GL_TRUE : GL_FALSE;
