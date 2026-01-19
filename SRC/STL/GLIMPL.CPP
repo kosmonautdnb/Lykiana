@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 //#define __GLDISABLEDOSFUNCTIONS__ 1
+#define __NEARPOINTERVESA__ 1 // for DJGPP and glVesa(), enabled doesn't work with WindowsNT and Linux DOSEMU, but with it disabled many machines refuse to support a linear framebuffer.
 #if (!defined(__WATCOMC__))&&(!defined(__DJGPP__))
 #define __GLDISABLEDOSFUNCTIONS__ 1 // use glDirect()
 #endif
@@ -1027,8 +1028,8 @@ GLvoid glClipOnPlane(_GLContext *context,glVertex *v0,glVertex *v1,glVertex *v2,
     glClipPoly[2] = *v2;
   }
 
-  bool allIn = true;
-  bool allOut = true;
+  GLboolean allIn = GL_TRUE;
+  GLboolean allOut = GL_TRUE;
 
   for (GLint j = 0; j < glClipPolySize; j++) {
     double x =  glClipPoly[j].vertexX;
@@ -1043,9 +1044,9 @@ GLvoid glClipOnPlane(_GLContext *context,glVertex *v0,glVertex *v1,glVertex *v2,
     }
     clip[j] = x*plane[0]+y*plane[1]+z*plane[2]+plane[3];
     if (clip[j]>=0.0) 
-      allOut=false;
+      allOut=GL_FALSE;
     else
-      allIn=false;
+      allIn=GL_FALSE;
   }
 
   if (allOut) {
@@ -5184,7 +5185,7 @@ GLvoid glDrawTrianglePrecise(_GLContext *context,glVertex *v0,glVertex *v1,glVer
     }
   }
 
-  bool nullAlphaIsTransparent = false;
+  GLboolean nullAlphaIsTransparent = GL_FALSE;
   if (alphaTest) {
     switch(alphaFunction) {
     case GL_NEVER: {nullAlphaIsTransparent = GL_TRUE;} break;
@@ -5956,6 +5957,8 @@ void glBuildHiColorTables(glVbeModeInfo *mode) {
 
 #define DJGPPVGAMEMON
 #define DJGPPVGAMEMOFF
+#define DJGPPWRITECOLORNEARPOINTERON
+#define DJGPPWRITECOLORNEARPOINTEROFF
 #define VGARAMBASE (0xa0000)
 #define IN(reg) rmregs.e##reg = in->##reg
 #define OUT(reg) out->##reg = (uint16_t)rmregs.e##reg
@@ -6192,11 +6195,25 @@ GLboolean glVesa(GLint xRes,GLint yRes, GLint bPP) {
 #define DJGPPVGAMEMON if (useNearPointers) __djgpp_nearptr_enable();
 #define DJGPPVGAMEMOFF if (useNearPointers) __djgpp_nearptr_disable();
 
+GLuint *glWriteNearPointer = NULL;
+#ifdef __NEARPOINTERVESA__
+#define DJGPPWRITECOLORNEARPOINTERON {DJGPPVGAMEMON;glWriteNearPointer = (GLuint*)(__djgpp_conventional_base + glLinearFrameBufferStruct.address);}
+#define DJGPPWRITECOLORNEARPOINTEROFF DJGPPVGAMEMOFF
+#else // __NEARPOINTERVESA__
+#define DJGPPWRITECOLORNEARPOINTERON
+#define DJGPPWRITECOLORNEARPOINTEROFF
+#endif // __NEARPOINTERVESA__
+
+#define DJGPPWRITECOLOR8(__index__,__value__) ((GLubyte*)glWriteNearPointer)[__index__] = __value__
+#define DJGPPWRITECOLOR32(__index__,__value__) glWriteNearPointer[__index__] = __value__
+
 GLint glVESABUF_len=1024; // length of struct to work on with realmode es:di
 
 GLboolean glVESABUF_sel_init = GL_FALSE; // we need VESABUF_sel just once
 
+#ifndef __NEARPOINTERVESA__
 GLint glVesasel; // final linear framebuffer accessor (_farpokel)
+#endif // __NEARPOINTERVESA__
 
 _go32_dpmi_seginfo glVESABUF_sel; // struct to work on with realmode es:di
 
@@ -6206,7 +6223,9 @@ __dpmi_meminfo glLinearFrameBufferStruct; // physical to linear address mapping 
 GLboolean glUnmapPhysical(GLuint linearAddress) {
   __UNUSED(linearAddress);
   __dpmi_free_physical_address_mapping(&glLinearFrameBufferStruct);
+#ifndef __NEARPOINTERVESA__
   __dpmi_free_ldt_descriptor(glVesasel);
+#endif // __NEARPOINTERVESA__
   return GL_TRUE;
 }
 
@@ -6295,13 +6314,22 @@ GLboolean glVesa(GLint xRes,GLint yRes, GLint bPP) {
       glSetupMouse();
 
       // linear framebuffer mapping to vesasel not glFrameBufferDedicated
-      glLinearFrameBufferStruct.size = xRes*yRes*(bPP/8);
       glLinearFrameBufferStruct.address = modeInfo.linearFrameBuffer;
-      __dpmi_physical_address_mapping(&glLinearFrameBufferStruct);
+      glLinearFrameBufferStruct.size = xRes*yRes*(bPP/8);
+      if (__dpmi_physical_address_mapping(&glLinearFrameBufferStruct) != 0) {
+        glDone();
+        return GL_FALSE;
+      }
+      glFrameBufferDedicated = (GLuint*)0x10101010; // not NULL so glDone calls unmap
+#ifndef __NEARPOINTERVESA__
       glVesasel = __dpmi_allocate_ldt_descriptors(1);
+      if (glVesasel < 0) {
+        glDone();
+        return GL_FALSE;
+      }
       __dpmi_set_segment_base_address(glVesasel,glLinearFrameBufferStruct.address);
       __dpmi_set_segment_limit(glVesasel,glLinearFrameBufferStruct.size-1);
-      glFrameBufferDedicated = (GLuint*)0x10101010; // not NULL so glDone calls unmap
+#endif //__NEARPOINTERVESA__
       // call glRefresh() directly after that.
       return GL_TRUE;
     }
@@ -6471,6 +6499,8 @@ GLvoid glRefresh() {
     return;
   }
 
+  DJGPPWRITECOLORNEARPOINTERON
+
   if (glBits == 32) {
     // 32bit
     GLuint *read = &glFrameBuffer0[0];
@@ -6479,7 +6509,11 @@ GLvoid glRefresh() {
       for (GLint i = 0; i < k; i++) {
         const GLuint rgba = *read++;
 #ifdef __DJGPP__
+#ifndef __NEARPOINTERVESA__
         _farpokel(glVesasel,i<<2,(rgba & 0xff00ff00)|((rgba&0x00ff00ff)>>16)|((rgba&0x00ff00ff)<<16));
+#else // __NEARPOINTERVESA__
+        DJGPPWRITECOLOR32(i,(rgba & 0xff00ff00)|((rgba&0x00ff00ff)>>16)|((rgba&0x00ff00ff)<<16));
+#endif // __NEARPOINTERVESA__
 #else // __DJGPP__
         glFrameBufferDedicated[i] = (rgba & 0xff00ff00)|((rgba&0x00ff00ff)>>16)|((rgba&0x00ff00ff)<<16);
 #endif // __DJGPP__
@@ -6488,7 +6522,11 @@ GLvoid glRefresh() {
       for (GLint i = 0; i < k; i++) {
         const GLuint rgba = *read++;
 #ifdef __DJGPP__
+#ifndef __NEARPOINTERVESA__
         _farpokel(glVesasel,i<<2,rgba);
+#else // __NEARPOINTERVESA__
+        DJGPPWRITECOLOR32(i,rgba);
+#endif // __NEARPOINTERVESA__
 #else // __DJGPP__
         glFrameBufferDedicated[i] = rgba;
 #endif // __DJGPP__
@@ -6507,9 +6545,15 @@ GLvoid glRefresh() {
       for (GLint i = 0; i < k; i += 3) {
         const GLuint rgba = *read++;
 #ifdef __DJGPP__
+#ifndef __NEARPOINTERVESA__
         _farpokeb(glVesasel,i,(rgba>>16) & 0xff);
         _farpokeb(glVesasel,i+1,(rgba>>8) & 0xff);
         _farpokeb(glVesasel,i+2,rgba & 0xff);
+#else // __NEARPOINTERVESA__
+        DJGPPWRITECOLOR8(i,(rgba>>16) & 0xff);
+        DJGPPWRITECOLOR8(i+1,(rgba>>8) & 0xff);
+        DJGPPWRITECOLOR8(i+2,(rgba) & 0xff);
+#endif // __NEARPOINTERVESA__
 #else // __DJGPP__
         dedicated[0] = (GLubyte)((rgba>>16) & 0xff);
         dedicated[1] = (GLubyte)((rgba>>8) & 0xff);
@@ -6521,9 +6565,15 @@ GLvoid glRefresh() {
       for (GLint i = 0; i < k; i += 3) {
         const GLuint rgba = *read++;
 #ifdef __DJGPP__
+#ifndef __NEARPOINTERVESA__
         _farpokeb(glVesasel,i,rgba & 0xff);
         _farpokeb(glVesasel,i+1,(rgba>>8) & 0xff);
         _farpokeb(glVesasel,i+2,(rgba>>16) & 0xff);
+#else // __NEARPOINTERVESA__
+        DJGPPWRITECOLOR8(i,(rgba) & 0xff);
+        DJGPPWRITECOLOR8(i+1,(rgba>>8) & 0xff);
+        DJGPPWRITECOLOR8(i+2,(rgba>>16) & 0xff);
+#endif // __NEARPOINTERVESA__
 #else // __DJGPP__
         dedicated[0] = (GLubyte)(rgba & 0xff);
         dedicated[1] = (GLubyte)((rgba>>8) & 0xff);
@@ -6547,12 +6597,18 @@ GLvoid glRefresh() {
       const GLuint rgba2 = *read++;
       const GLuint in162 = (GLuint)(glHiColorTableR[rgba2&0xff]|glHiColorTableG[(rgba2>>8)&0xff]|glHiColorTableB[(rgba2>>16)&0xff]);
 #ifdef __DJGPP__
-      _farpokel(glVesasel,i*2,in16|(in162<<16));
+#ifndef __NEARPOINTERVESA__
+      _farpokel(glVesasel,i<<1,in16|(in162<<16));
+#else // __NEARPOINTERVESA__
+        DJGPPWRITECOLOR32(i>>1,in16|(in162<<16));
+#endif // __NEARPOINTERVESA__
 #else // __DJGPP__
       *dedicated++ = in16|(in162<<16);
 #endif // __DJGPP__
     }
   }
+
+  DJGPPWRITECOLORNEARPOINTEROFF
 }
 
 GLvoid glDone() {

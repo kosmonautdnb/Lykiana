@@ -39,6 +39,8 @@ copy /Y c:\_STL_\TRUETYPE.HPP SRC\STL\
 copy /Y c:\_STL_\TRUETYPE.CPP SRC\STL\
 copy /Y c:\_STL_\GLRECORD.HPP SRC\STL\
 copy /Y c:\_STL_\GLRECORD.CPP SRC\STL\
+copy /Y c:\_STL_\GLEGA.HPP SRC\STL\
+copy /Y c:\_STL_\GLEGA.CPP SRC\STL\
 copy /Y c:\_STL_\ENC_H264.HPP SRC\STL\
 copy /Y c:\_STL_\MINIMP4.HPP SRC\STL\
 

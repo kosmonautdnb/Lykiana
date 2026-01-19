@@ -42,6 +42,7 @@
 #include "OBJECTS/O_GLTF.HPP"
 #include "OBJECTS/O_WAVOBJ.HPP"
 #include "GLRECORD.HPP"
+#include "GLEGA.HPP"
 #ifdef __WATCOMC__
 #include <i86.h>
 #endif // __WATCOMC__
@@ -55,6 +56,8 @@
 #endif // PI
 
 double glSeconds2 = 0;
+
+//#define USE_EGA
 
 /**
 * A fmod which handles negative values a bit "better"
@@ -1491,6 +1494,9 @@ int main(int argc, const char **argv) {
 
   printf("Initializing ScreenMode...\n");
   glWatcomPrecisionTimer(GL_TRUE);
+#ifdef USE_EGA
+  glEGA(320,200);
+#else // USE_EGA
 #ifdef __WATCOMC__
   if (!glVesa(320,200,32)) glVGA();
 #else
@@ -1500,6 +1506,7 @@ int main(int argc, const char **argv) {
 
   overideGLRecordVideoResolution(1280, 720);
   useGLRecordWithDescFile("record.dsc");
+#endif // USE_EGA
 
   while(1) {
     glSeconds2 = glSeconds();
